@@ -24,6 +24,10 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
 // Forward declaration of `LLMContextConfig` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
+// Forward declaration of `StreamEventEnvelope` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
+// Forward declaration of `StreamEventKind` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
 // Forward declaration of `GenerationStats` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
 
@@ -39,6 +43,8 @@ namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
 #include <NitroModules/AnyMap.hpp>
 #include "LLMGenerationConfig.hpp"
 #include "LLMContextConfig.hpp"
+#include "StreamEventEnvelope.hpp"
+#include "StreamEventKind.hpp"
 #include "GenerationStats.hpp"
 
 #include "MLXReactNative-Swift-Cxx-Umbrella.hpp"
@@ -137,7 +143,7 @@ namespace margelo::nitro::mlxreactnative {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> streamWithEvents(const std::string& prompt, const std::function<void(const std::string& /* eventJson */)>& onEvent) override {
+    inline std::shared_ptr<Promise<std::string>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) override {
       auto __result = _swiftPart.streamWithEvents(prompt, onEvent);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());

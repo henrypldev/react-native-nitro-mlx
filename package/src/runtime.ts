@@ -1,5 +1,11 @@
 import type { EmbeddingsLoadOptions } from './specs/Embeddings.nitro'
-import type { LLMLoadOptions, ToolDefinition } from './specs/LLM.nitro'
+import type {
+  GenerationStats,
+  LLMLoadOptions,
+  StreamEvent,
+  StreamEventEnvelope,
+  ToolDefinition,
+} from './specs/LLM.nitro'
 import type { STTLoadOptions } from './specs/STT.nitro'
 import type { TTSGenerateOptions, TTSLoadOptions } from './specs/TTS.nitro'
 
@@ -157,7 +163,76 @@ export function validateTTSGenerateOptions(
     }
   }
 
-  return options
+  return {
+    ...options,
+    onProgress: createSafeCallback('TTS.stream onProgress', options.onProgress),
+  }
+}
+
+const EMPTY_STATS: GenerationStats = {
+  tokenCount: 0,
+  tokensPerSecond: 0,
+  timeToFirstToken: 0,
+  totalTime: 0,
+  toolExecutionTime: 0,
+}
+
+/**
+ * Expand the flat `StreamEventEnvelope` that crosses the bridge back into the
+ * discriminated `StreamEvent` union that consumers switch on.
+ *
+ * The native side always populates the fields its `kind` implies, so the `??` fallbacks
+ * are defensive only. `generation_end` falls back to zeroed stats rather than being
+ * dropped, because swallowing the terminal event would strand UI state mid-generation.
+ */
+export function mapStreamEventEnvelope(
+  envelope: StreamEventEnvelope,
+): StreamEvent | null {
+  switch (envelope.kind) {
+    case 'generation_start':
+      return { type: 'generation_start', timestamp: envelope.timestamp ?? 0 }
+    case 'token':
+      return { type: 'token', token: envelope.token ?? '' }
+    case 'thinking_start':
+      return { type: 'thinking_start', timestamp: envelope.timestamp ?? 0 }
+    case 'thinking_chunk':
+      return { type: 'thinking_chunk', chunk: envelope.chunk ?? '' }
+    case 'thinking_end':
+      return {
+        type: 'thinking_end',
+        content: envelope.content ?? '',
+        timestamp: envelope.timestamp ?? 0,
+      }
+    case 'tool_call_start':
+      return {
+        type: 'tool_call_start',
+        id: envelope.id ?? '',
+        name: envelope.name ?? '',
+        arguments: envelope.arguments ?? '',
+      }
+    case 'tool_call_executing':
+      return { type: 'tool_call_executing', id: envelope.id ?? '' }
+    case 'tool_call_completed':
+      return {
+        type: 'tool_call_completed',
+        id: envelope.id ?? '',
+        result: envelope.result ?? '',
+      }
+    case 'tool_call_failed':
+      return {
+        type: 'tool_call_failed',
+        id: envelope.id ?? '',
+        error: envelope.error ?? '',
+      }
+    case 'generation_end':
+      return {
+        type: 'generation_end',
+        content: envelope.content ?? '',
+        stats: envelope.stats ?? EMPTY_STATS,
+      }
+    default:
+      return null
+  }
 }
 
 export function safeJsonParse<T>(value: string, fallback: T): T {

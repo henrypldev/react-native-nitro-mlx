@@ -15,6 +15,8 @@
 
 // Forward declaration of `LLMLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
+// Forward declaration of `StreamEventEnvelope` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
 // Forward declaration of `GenerationStats` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
@@ -25,6 +27,7 @@ namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
 #include "LLMLoadOptions.hpp"
 #include <optional>
 #include <functional>
+#include "StreamEventEnvelope.hpp"
 #include "GenerationStats.hpp"
 #include "LLMMessage.hpp"
 #include <vector>
@@ -69,7 +72,7 @@ namespace margelo::nitro::mlxreactnative {
       virtual std::shared_ptr<Promise<void>> load(const std::string& modelId, const std::optional<LLMLoadOptions>& options) = 0;
       virtual std::shared_ptr<Promise<std::string>> generate(const std::string& prompt) = 0;
       virtual std::shared_ptr<Promise<std::string>> stream(const std::string& prompt, const std::function<void(const std::string& /* token */)>& onToken, const std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>& onToolCall) = 0;
-      virtual std::shared_ptr<Promise<std::string>> streamWithEvents(const std::string& prompt, const std::function<void(const std::string& /* eventJson */)>& onEvent) = 0;
+      virtual std::shared_ptr<Promise<std::string>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) = 0;
       virtual void stop() = 0;
       virtual void unload() = 0;
       virtual GenerationStats getLastGenerationStats() = 0;

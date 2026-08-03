@@ -123,7 +123,7 @@ class HybridLLM: HybridLLMSpec {
 
     func streamWithEvents(
         prompt: String,
-        onEvent: @escaping (String) -> Void
+        onEvent: @escaping (StreamEventEnvelope) -> Void
     ) throws -> Promise<String> {
         Promise.async { [core] in
             try await core.streamWithEvents(prompt: prompt, onEvent: onEvent)
@@ -933,7 +933,7 @@ private final class HybridLLMCore {
 
     func streamWithEvents(
         prompt: String,
-        onEvent: @escaping (String) -> Void
+        onEvent: @escaping (StreamEventEnvelope) -> Void
     ) async throws -> String {
         guard let container else {
             throw LLMError.notLoaded

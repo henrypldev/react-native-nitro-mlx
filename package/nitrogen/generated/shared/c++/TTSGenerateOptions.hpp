@@ -32,6 +32,7 @@
 
 #include <string>
 #include <optional>
+#include <functional>
 
 namespace margelo::nitro::mlxreactnative {
 
@@ -42,13 +43,14 @@ namespace margelo::nitro::mlxreactnative {
   public:
     std::optional<std::string> voice     SWIFT_PRIVATE;
     std::optional<double> speed     SWIFT_PRIVATE;
+    std::optional<std::function<void(double /* progress */)>> onProgress     SWIFT_PRIVATE;
 
   public:
     TTSGenerateOptions() = default;
-    explicit TTSGenerateOptions(std::optional<std::string> voice, std::optional<double> speed): voice(voice), speed(speed) {}
+    explicit TTSGenerateOptions(std::optional<std::string> voice, std::optional<double> speed, std::optional<std::function<void(double /* progress */)>> onProgress): voice(voice), speed(speed), onProgress(onProgress) {}
 
   public:
-    friend bool operator==(const TTSGenerateOptions& lhs, const TTSGenerateOptions& rhs) = default;
+    // TTSGenerateOptions is not equatable because these properties are not equatable: onProgress
   };
 
 } // namespace margelo::nitro::mlxreactnative
@@ -62,13 +64,15 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::mlxreactnative::TTSGenerateOptions(
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "voice"))),
-        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "speed")))
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "speed"))),
+        JSIConverter<std::optional<std::function<void(double)>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "onProgress")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mlxreactnative::TTSGenerateOptions& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "voice"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.voice));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "speed"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.speed));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "onProgress"), JSIConverter<std::optional<std::function<void(double)>>>::toJSI(runtime, arg.onProgress));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -81,6 +85,7 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "voice")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "speed")))) return false;
+      if (!JSIConverter<std::optional<std::function<void(double)>>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "onProgress")))) return false;
       return true;
     }
   };

@@ -32,6 +32,10 @@ namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTLoadOptions; }
+// Forward declaration of `StreamEventEnvelope` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
+// Forward declaration of `StreamEventKind` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
 // Forward declaration of `TTSGenerateOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct TTSGenerateOptions; }
 // Forward declaration of `TTSLoadOptions` to properly resolve imports.
@@ -54,6 +58,8 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
 #include "STTLoadOptions.hpp"
+#include "StreamEventEnvelope.hpp"
+#include "StreamEventKind.hpp"
 #include "TTSGenerateOptions.hpp"
 #include "TTSLoadOptions.hpp"
 #include "ToolDefinition.hpp"

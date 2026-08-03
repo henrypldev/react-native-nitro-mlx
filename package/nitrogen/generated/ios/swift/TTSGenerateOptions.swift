@@ -18,7 +18,7 @@ public extension TTSGenerateOptions {
   /**
    * Create a new instance of `TTSGenerateOptions`.
    */
-  init(voice: String?, speed: Double?) {
+  init(voice: String?, speed: Double?, onProgress: ((_ progress: Double) -> Void)?) {
     self.init({ () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = voice {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
@@ -28,6 +28,15 @@ public extension TTSGenerateOptions {
     }(), { () -> bridge.std__optional_double_ in
       if let __unwrappedValue = speed {
         return bridge.create_std__optional_double_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__function_void_double____progress______ in
+      if let __unwrappedValue = onProgress {
+        return bridge.create_std__optional_std__function_void_double____progress______({ () -> bridge.Func_void_double in
+          let __closureWrapper = Func_void_double(__unwrappedValue)
+          return bridge.create_Func_void_double(__closureWrapper.toUnsafe())
+        }())
       } else {
         return .init()
       }
@@ -52,6 +61,23 @@ public extension TTSGenerateOptions {
       if bridge.has_value_std__optional_double_(self.__speed) {
         let __unwrapped = bridge.get_std__optional_double_(self.__speed)
         return __unwrapped
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var onProgress: ((_ progress: Double) -> Void)? {
+    return { () -> ((_ progress: Double) -> Void)? in
+      if bridge.has_value_std__optional_std__function_void_double____progress______(self.__onProgress) {
+        let __unwrapped = bridge.get_std__optional_std__function_void_double____progress______(self.__onProgress)
+        return { () -> (Double) -> Void in
+          let __wrappedFunction = bridge.wrap_Func_void_double(__unwrapped)
+          return { (__progress: Double) -> Void in
+            __wrappedFunction.call(__progress)
+          }
+        }()
       } else {
         return nil
       }

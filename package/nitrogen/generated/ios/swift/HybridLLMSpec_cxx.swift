@@ -240,12 +240,12 @@ open class HybridLLMSpec_cxx {
   }
   
   @inline(__always)
-  public final func streamWithEvents(prompt: std.string, onEvent: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func streamWithEvents(prompt: std.string, onEvent: bridge.Func_void_StreamEventEnvelope) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
     do {
-      let __result = try self.__implementation.streamWithEvents(prompt: String(prompt), onEvent: { () -> (String) -> Void in
-        let __wrappedFunction = bridge.wrap_Func_void_std__string(onEvent)
-        return { (__eventJson: String) -> Void in
-          __wrappedFunction.call(std.string(__eventJson))
+      let __result = try self.__implementation.streamWithEvents(prompt: String(prompt), onEvent: { () -> (StreamEventEnvelope) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_StreamEventEnvelope(onEvent)
+        return { (__event: StreamEventEnvelope) -> Void in
+          __wrappedFunction.call(__event)
         }
       }())
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in

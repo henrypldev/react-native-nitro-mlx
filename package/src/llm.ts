@@ -3,6 +3,7 @@ import {
   assertBoolean,
   assertNonEmptyString,
   createSafeCallback,
+  mapStreamEventEnvelope,
   safeJsonParse,
   validateLLMLoadOptions,
 } from './runtime'
@@ -11,6 +12,7 @@ import type {
   LLMLoadOptions,
   LLM as LLMSpec,
   StreamEvent,
+  StreamEventEnvelope,
 } from './specs/LLM.nitro'
 
 export type EventCallback = (event: StreamEvent) => void
@@ -158,8 +160,8 @@ export const LLM = {
 
     return getInstance().streamWithEvents(
       assertNonEmptyString(prompt, 'LLM prompt'),
-      (eventJson: string) => {
-        const event = safeJsonParse<StreamEvent | null>(eventJson, null)
+      (envelope: StreamEventEnvelope) => {
+        const event = mapStreamEventEnvelope(envelope)
         if (event) {
           safeOnEvent?.(event)
         }

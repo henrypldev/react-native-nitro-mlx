@@ -30,7 +30,9 @@ Pod::Spec.new do |s|
 
   spm_dependency(s,
     url: "https://github.com/Blaizzy/mlx-audio-swift.git",
-    requirement: {kind: "branch", branch: "main"},
+    # Pinned to a revision, not `main`: a clean prebuild re-resolves SPM, so tracking a
+    # branch lets upstream changes break the build with no local change. Bump deliberately.
+    requirement: {kind: "revision", revision: "4266f988d170a83017d1e82e2e4654602f277f1d"},
     products: ["MLXAudioTTS", "MLXAudioSTT", "MLXAudioCore"]
   )
 

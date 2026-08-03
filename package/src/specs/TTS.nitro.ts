@@ -7,6 +7,12 @@ export interface TTSLoadOptions {
 export interface TTSGenerateOptions {
   voice?: string
   speed?: number
+  /**
+   * Fractional generation progress (0-1). Only fires during `stream()`, and only for
+   * models with a deterministic step count (e.g. diffusion denoise steps). `generate()`
+   * is a one-shot call that emits no events, so this is never invoked there.
+   */
+  onProgress?: (progress: number) => void
 }
 
 export interface TTS extends HybridObject<{ ios: 'swift' }> {
