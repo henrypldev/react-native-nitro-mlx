@@ -114,7 +114,7 @@ class HybridTTS: HybridTTSSpec {
           case .audio(let audio):
             let buffer = self.mlxArrayToArrayBuffer(audio)
             onAudioChunk(buffer)
-          case .token, .info:
+          case .token, .info, .progress:
             break
           }
         }
