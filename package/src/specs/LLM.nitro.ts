@@ -79,6 +79,45 @@ export type StreamEvent =
   | ToolCallFailedEvent
   | GenerationEndEvent
 
+/**
+ * Discriminant for `StreamEventEnvelope`.
+ *
+ * Nitro cannot represent a discriminated union of structs (`TokenEvent | ThinkingEvent | ...`)
+ * — an inline string literal on a struct field is ambiguous between a string and a union
+ * enum. A *named* literal union compiles to a native enum, so the events cross the bridge
+ * as one envelope struct discriminated by this, and `llm.ts` maps it back to `StreamEvent`.
+ */
+export type StreamEventKind =
+  | 'generation_start'
+  | 'token'
+  | 'thinking_start'
+  | 'thinking_chunk'
+  | 'thinking_end'
+  | 'tool_call_start'
+  | 'tool_call_executing'
+  | 'tool_call_completed'
+  | 'tool_call_failed'
+  | 'generation_end'
+
+/**
+ * Flat wire representation of a `StreamEvent`. Which fields are populated depends on
+ * `kind`; consumers should use the mapped `StreamEvent` union from `llm.ts` instead.
+ * @internal
+ */
+export interface StreamEventEnvelope {
+  kind: StreamEventKind
+  timestamp?: number
+  token?: string
+  chunk?: string
+  content?: string
+  id?: string
+  name?: string
+  arguments?: string
+  result?: string
+  error?: string
+  stats?: GenerationStats
+}
+
 export interface LLMMessage {
   role: string
   content: string
@@ -195,7 +234,10 @@ export interface LLM extends HybridObject<{ ios: 'swift' }> {
     onToolCall?: (toolName: string, args: string) => void,
   ): Promise<string>
 
-  streamWithEvents(prompt: string, onEvent: (eventJson: string) => void): Promise<string>
+  streamWithEvents(
+    prompt: string,
+    onEvent: (event: StreamEventEnvelope) => void,
+  ): Promise<string>
 
   /**
    * Stop the current generation.

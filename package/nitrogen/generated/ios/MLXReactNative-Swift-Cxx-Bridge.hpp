@@ -34,6 +34,10 @@ namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTLoadOptions; }
+// Forward declaration of `StreamEventEnvelope` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
+// Forward declaration of `StreamEventKind` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
 // Forward declaration of `TTSGenerateOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct TTSGenerateOptions; }
 // Forward declaration of `TTSLoadOptions` to properly resolve imports.
@@ -68,6 +72,8 @@ namespace MLXReactNative { class HybridTTSSpec_cxx; }
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
 #include "STTLoadOptions.hpp"
+#include "StreamEventEnvelope.hpp"
+#include "StreamEventKind.hpp"
 #include "TTSGenerateOptions.hpp"
 #include "TTSLoadOptions.hpp"
 #include "ToolDefinition.hpp"
@@ -637,6 +643,58 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return optional.value();
   }
   
+  // pragma MARK: std::optional<std::string>
+  /**
+   * Specialized version of `std::optional<std::string>`.
+   */
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
+  }
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<GenerationStats>
+  /**
+   * Specialized version of `std::optional<GenerationStats>`.
+   */
+  using std__optional_GenerationStats_ = std::optional<GenerationStats>;
+  inline std::optional<GenerationStats> create_std__optional_GenerationStats_(const GenerationStats& value) noexcept {
+    return std::optional<GenerationStats>(value);
+  }
+  inline bool has_value_std__optional_GenerationStats_(const std::optional<GenerationStats>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline GenerationStats get_std__optional_GenerationStats_(const std::optional<GenerationStats>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(const StreamEventEnvelope& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const StreamEventEnvelope&)>`.
+   */
+  using Func_void_StreamEventEnvelope = std::function<void(const StreamEventEnvelope& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const StreamEventEnvelope& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_StreamEventEnvelope_Wrapper final {
+  public:
+    explicit Func_void_StreamEventEnvelope_Wrapper(std::function<void(const StreamEventEnvelope& /* event */)>&& func): _function(std::make_unique<std::function<void(const StreamEventEnvelope& /* event */)>>(std::move(func))) {}
+    inline void call(StreamEventEnvelope event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const StreamEventEnvelope& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_StreamEventEnvelope create_Func_void_StreamEventEnvelope(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_StreamEventEnvelope_Wrapper wrap_Func_void_StreamEventEnvelope(Func_void_StreamEventEnvelope value) noexcept {
+    return Func_void_StreamEventEnvelope_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridLLMSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridLLMSpec>`.
@@ -813,21 +871,6 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return optional.has_value();
   }
   inline TTSLoadOptions get_std__optional_TTSLoadOptions_(const std::optional<TTSLoadOptions>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<std::string>
-  /**
-   * Specialized version of `std::optional<std::string>`.
-   */
-  using std__optional_std__string_ = std::optional<std::string>;
-  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
-    return std::optional<std::string>(value);
-  }
-  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
     return optional.value();
   }
   

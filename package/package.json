@@ -56,7 +56,7 @@
   "devDependencies": {
     "@release-it/bumper": "^7.0.5",
     "@release-it/conventional-changelog": "^10.0.1",
-    "nitrogen": "^0.35.4",
+    "nitrogen": "^0.36.5",
     "react-native-builder-bob": "^0.40.13",
     "release-it": "^19.0.4"
   },
