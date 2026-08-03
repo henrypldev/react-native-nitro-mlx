@@ -1,4 +1,4 @@
-import { LegendList, type LegendListRef } from '@legendapp/list'
+import { LegendList, type LegendListRef } from '@legendapp/list/react-native'
 import * as Crypto from 'expo-crypto'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
