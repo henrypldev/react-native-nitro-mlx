@@ -24,8 +24,17 @@ Pod::Spec.new do |s|
 
   spm_dependency(s,
     url: "https://github.com/ml-explore/mlx-swift-lm.git",
-    requirement: {kind: "upToNextMinorVersion", minimumVersion: "3.31.3"},
+    requirement: {kind: "upToNextMinorVersion", minimumVersion: "3.31.4"},
     products: ["MLXLLM", "MLXLMCommon", "MLXEmbedders"]
+  )
+
+  spm_dependency(s,
+    url: "https://github.com/ml-explore/mlx-swift.git",
+    # Declared directly for two reasons: the Swift sources `import MLX`, and mlx-swift-lm only
+    # asks for `.upToNextMinor(from: "0.31.4")`, so a clean re-resolve could land below the
+    # 0.31.6 iOS build fix. SPM intersects both requirements, giving a floor we control.
+    requirement: {kind: "upToNextMinorVersion", minimumVersion: "0.31.6"},
+    products: ["MLX"]
   )
 
   spm_dependency(s,
