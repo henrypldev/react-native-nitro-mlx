@@ -67,6 +67,16 @@ export interface GenerationEndEvent {
   stats: GenerationStats
 }
 
+export interface GenerationErrorEvent {
+  type: 'generation_error'
+  /** Localized failure message */
+  error: string
+  /** Failure stage: 'prepare' | 'generate' | 'tool' | 'history' */
+  stage: string
+  /** Partial stats at the moment of failure (real elapsed time, tokens so far) */
+  stats: GenerationStats
+}
+
 export type StreamEvent =
   | GenerationStartEvent
   | TokenEvent
@@ -78,6 +88,7 @@ export type StreamEvent =
   | ToolCallCompletedEvent
   | ToolCallFailedEvent
   | GenerationEndEvent
+  | GenerationErrorEvent
 
 /**
  * Discriminant for `StreamEventEnvelope`.
@@ -98,6 +109,7 @@ export type StreamEventKind =
   | 'tool_call_completed'
   | 'tool_call_failed'
   | 'generation_end'
+  | 'generation_error'
 
 /**
  * Flat wire representation of a `StreamEvent`. Which fields are populated depends on
@@ -115,6 +127,7 @@ export interface StreamEventEnvelope {
   arguments?: string
   result?: string
   error?: string
+  stage?: string
   stats?: GenerationStats
 }
 

@@ -151,6 +151,10 @@ export const LLM = {
    *     case 'tool_call_start':
    *       showToolCallCard(event.name, event.arguments)
    *       break
+   *     case 'generation_error':
+   *       // Terminal event on failure. event.stage and event.stats are also set.
+   *       showError(event.error)
+   *       break
    *   }
    * })
    * ```
