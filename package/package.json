@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test src/runtime.test.ts",
     "test:ios-history-trim": "swiftc ios/Sources/ManagedHistoryTrimPlanner.swift ios/Tests/ManagedHistoryTrimPlannerSpyTests.swift -o /tmp/ManagedHistoryTrimPlannerSpyTests && /tmp/ManagedHistoryTrimPlannerSpyTests",
+    "test:ios-llm-error": "swiftc ios/Sources/LLMError.swift ios/Tests/LLMErrorTests.swift -o /tmp/LLMErrorTests && /tmp/LLMErrorTests",
     "clean": "rm -rf android/build node_modules/**/android/build lib android/.cxx node_modules/**/android/.cxx",
     "release": "release-it",
     "specs": "bun typecheck && nitrogen --logLevel=\\\"debug\\\" && bun run build",
