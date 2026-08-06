@@ -356,6 +356,33 @@ private final class HybridLLMCore {
         }
     }
 
+    private func ensureNotGenerating() throws {
+        if currentTask != nil {
+            throw LLMError.alreadyGenerating
+        }
+    }
+
+    /// Wraps a generation phase so foreign errors surface as
+    /// `LLMError.generationFailed` with the phase's stage. `LLMError` and
+    /// cancellation pass through untouched.
+    private func withStage<T>(
+        _ stage: GenerationStage,
+        _ body: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await body()
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as LLMError {
+            throw error
+        } catch {
+            throw LLMError.generationFailed(
+                stage: stage.rawValue,
+                message: error.localizedDescription
+            )
+        }
+    }
+
     private func getMemoryUsage() -> String {
         var taskInfo = mach_task_basic_info()
         var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
@@ -779,19 +806,26 @@ private final class HybridLLMCore {
         guard let container else {
             throw LLMError.notLoaded
         }
+        try ensureNotGenerating()
 
         let task = Task<String, Error> { @MainActor in
                 let startTime = Date()
 
                 if canUseManagedSession {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
 
-                    let result = try await runManagedSession(prompt: prompt, batcher: nil)
+                    let result = try await withStage(.generate) {
+                        try await self.runManagedSession(prompt: prompt, batcher: nil)
+                    }
 
                     var updatedHistory = messageHistory
                     updatedHistory.append(LLMMessage(role: "user", content: prompt))
                     updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await finalizeManagedHistory(updatedHistory)
+                    try await withStage(.history) {
+                        try await self.finalizeManagedHistory(updatedHistory)
+                    }
 
                     let stats = makeStats(
                         startTime: startTime,
@@ -805,7 +839,9 @@ private final class HybridLLMCore {
                 }
 
                 if manageHistory {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
                 }
 
                 var history = messageHistory
@@ -815,21 +851,35 @@ private final class HybridLLMCore {
                 let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: { _ in })
                 let sink = StringGenerationSink(batcher: batcher, onToolCall: { _, _ in })
 
-                let result = try await performGeneration(
-                    container: container,
-                    history: &history,
-                    prompt: prompt,
-                    toolResults: nil,
-                    depth: 0,
-                    sink: sink,
-                    onGenerationInfo: { tokens, time in
-                        generationTokenCount += tokens
-                        generationTimeMs += time
-                    },
-                    toolExecutionTime: &toolExecutionTime
-                )
+                let result: String
+                do {
+                    result = try await performGeneration(
+                        container: container,
+                        history: &history,
+                        prompt: prompt,
+                        toolResults: nil,
+                        depth: 0,
+                        sink: sink,
+                        onGenerationInfo: { tokens, time in
+                            generationTokenCount += tokens
+                            generationTimeMs += time
+                        },
+                        toolExecutionTime: &toolExecutionTime
+                    )
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch let error as LLMError {
+                    throw error
+                } catch {
+                    throw LLMError.generationFailed(
+                        stage: GenerationStage.generate.rawValue,
+                        message: error.localizedDescription
+                    )
+                }
 
-                try await finalizeManagedHistory(history)
+                try await withStage(.history) {
+                    try await self.finalizeManagedHistory(history)
+                }
 
                 lastStats = makeStats(
                     startTime: startTime,
@@ -855,20 +905,27 @@ private final class HybridLLMCore {
         guard let container else {
             throw LLMError.notLoaded
         }
+        try ensureNotGenerating()
 
         let task = Task<String, Error> { @MainActor in
                 let startTime = Date()
                 let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: onToken)
 
                 if canUseManagedSession {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
 
-                    let result = try await runManagedSession(prompt: prompt, batcher: batcher)
+                    let result = try await withStage(.generate) {
+                        try await self.runManagedSession(prompt: prompt, batcher: batcher)
+                    }
 
                     var updatedHistory = messageHistory
                     updatedHistory.append(LLMMessage(role: "user", content: prompt))
                     updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await finalizeManagedHistory(updatedHistory)
+                    try await withStage(.history) {
+                        try await self.finalizeManagedHistory(updatedHistory)
+                    }
 
                     let stats = makeStats(
                         startTime: startTime,
@@ -882,7 +939,9 @@ private final class HybridLLMCore {
                 }
 
                 if manageHistory {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
                 }
 
                 var history = messageHistory
@@ -894,22 +953,36 @@ private final class HybridLLMCore {
                     onToolCall: onToolCall ?? { _, _ in }
                 )
 
-                let result = try await performGeneration(
-                    container: container,
-                    history: &history,
-                    prompt: prompt,
-                    toolResults: nil,
-                    depth: 0,
-                    sink: sink,
-                    onGenerationInfo: { tokens, time in
-                        generationTokenCount += tokens
-                        generationTimeMs += time
-                    },
-                    toolExecutionTime: &toolExecutionTime
-                )
+                let result: String
+                do {
+                    result = try await performGeneration(
+                        container: container,
+                        history: &history,
+                        prompt: prompt,
+                        toolResults: nil,
+                        depth: 0,
+                        sink: sink,
+                        onGenerationInfo: { tokens, time in
+                            generationTokenCount += tokens
+                            generationTimeMs += time
+                        },
+                        toolExecutionTime: &toolExecutionTime
+                    )
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch let error as LLMError {
+                    throw error
+                } catch {
+                    throw LLMError.generationFailed(
+                        stage: GenerationStage.generate.rawValue,
+                        message: error.localizedDescription
+                    )
+                }
 
                 batcher.flush()
-                try await finalizeManagedHistory(history)
+                try await withStage(.history) {
+                    try await self.finalizeManagedHistory(history)
+                }
 
                 let stats = makeStats(
                     startTime: startTime,
@@ -938,74 +1011,102 @@ private final class HybridLLMCore {
         guard let container else {
             throw LLMError.notLoaded
         }
+        try ensureNotGenerating()
 
         let task = Task<String, Error> { @MainActor in
-                let startTime = Date()
-                let emitter = StreamEventEmitter(callback: onEvent)
-                emitter.emitGenerationStart()
+            let startTime = Date()
+            let emitter = StreamEventEmitter(callback: onEvent)
+            emitter.emitGenerationStart()
 
+            var generationTokenCount = 0
+            var generationTimeMs: Double = 0
+            var toolExecutionTime: Double = 0
+            var firstTokenTime: Date?
+
+            @MainActor func partialStats() -> GenerationStats {
+                makeStats(
+                    startTime: startTime,
+                    firstTokenTime: firstTokenTime,
+                    generationTokenCount: generationTokenCount,
+                    generationTimeMs: generationTimeMs,
+                    toolExecutionTimeMs: toolExecutionTime
+                )
+            }
+
+            do {
                 if canUseManagedSession {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
 
                     let batcher = TokenBatcher(batchSize: tokenBatchSize) { token in
                         emitter.emitToken(token)
                     }
-                    let result = try await runManagedSession(prompt: prompt, batcher: batcher)
+                    let result = try await withStage(.generate) {
+                        try await self.runManagedSession(prompt: prompt, batcher: batcher)
+                    }
+                    generationTokenCount = result.generationTokenCount
+                    generationTimeMs = result.generationTimeMs
+                    firstTokenTime = result.firstTokenTime
 
                     var updatedHistory = messageHistory
                     updatedHistory.append(LLMMessage(role: "user", content: prompt))
                     updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await finalizeManagedHistory(updatedHistory)
+                    try await withStage(.history) {
+                        try await self.finalizeManagedHistory(updatedHistory)
+                    }
 
-                    let stats = makeStats(
-                        startTime: startTime,
-                        firstTokenTime: result.firstTokenTime,
-                        generationTokenCount: result.generationTokenCount,
-                        generationTimeMs: result.generationTimeMs,
-                        toolExecutionTimeMs: 0
-                    )
+                    let stats = partialStats()
                     lastStats = stats
                     emitter.emitGenerationEnd(content: result.output, stats: stats)
                     return result.output
                 }
 
                 if manageHistory {
-                    try await trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    try await withStage(.prepare) {
+                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                    }
                 }
 
                 var history = messageHistory
-                var generationTokenCount = 0
-                var generationTimeMs: Double = 0
-                var toolExecutionTime: Double = 0
                 let tokenBatcher = TokenBatcher(batchSize: tokenBatchSize) { token in
                     emitter.emitToken(token)
                 }
                 let sink = EventGenerationSink(emitter: emitter, batcher: tokenBatcher)
 
-                let result = try await performGeneration(
-                    container: container,
-                    history: &history,
-                    prompt: prompt,
-                    toolResults: nil,
-                    depth: 0,
-                    sink: sink,
-                    onGenerationInfo: { tokens, time in
-                        generationTokenCount += tokens
-                        generationTimeMs += time
-                    },
-                    toolExecutionTime: &toolExecutionTime
-                )
+                let result: String
+                do {
+                    result = try await performGeneration(
+                        container: container,
+                        history: &history,
+                        prompt: prompt,
+                        toolResults: nil,
+                        depth: 0,
+                        sink: sink,
+                        onGenerationInfo: { tokens, time in
+                            generationTokenCount += tokens
+                            generationTimeMs += time
+                        },
+                        toolExecutionTime: &toolExecutionTime
+                    )
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch let error as LLMError {
+                    throw error
+                } catch {
+                    throw LLMError.generationFailed(
+                        stage: GenerationStage.generate.rawValue,
+                        message: error.localizedDescription
+                    )
+                }
+                firstTokenTime = sink.firstTokenTime
 
                 tokenBatcher.flush()
-                try await finalizeManagedHistory(history)
+                try await withStage(.history) {
+                    try await self.finalizeManagedHistory(history)
+                }
 
-                let stats = makeStats(
-                    startTime: startTime,
-                    firstTokenTime: sink.firstTokenTime,
-                    generationTokenCount: generationTokenCount,
-                    generationTimeMs: generationTimeMs,
-                    toolExecutionTimeMs: toolExecutionTime
-                )
+                let stats = partialStats()
                 lastStats = stats
                 emitter.emitGenerationEnd(content: result, stats: stats)
 
@@ -1013,7 +1114,25 @@ private final class HybridLLMCore {
                     "StreamWithEvents complete - \(generationTokenCount) tokens, \(String(format: "%.1f", stats.tokensPerSecond)) tokens/s (tool execution: \(String(format: "%.0f", toolExecutionTime))ms)"
                 )
                 return result
+            } catch is CancellationError {
+                // stop() or a superseding load(): resolve with partial state.
+                // Tokens already reached JS through token events.
+                let stats = partialStats()
+                lastStats = stats
+                emitter.emitGenerationEnd(content: "", stats: stats)
+                return ""
+            } catch {
+                let stats = partialStats()
+                lastStats = stats
+                emitter.emitGenerationError(
+                    error: error.localizedDescription,
+                    stage: (error as? LLMError)?.failureStage
+                        ?? GenerationStage.generate.rawValue,
+                    stats: stats
+                )
+                throw error
             }
+        }
 
         currentTask = task
         defer { currentTask = nil }
