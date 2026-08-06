@@ -1,11 +1,11 @@
 {
   "version": 1,
   "skills": {
-    "swiftui-expert-skill": {
-      "source": "avdlee/swiftui-agent-skill",
+    "swift-concurrency": {
+      "source": "avdlee/swift-concurrency-agent-skill",
       "sourceType": "github",
-      "skillPath": "swiftui-expert-skill/SKILL.md",
-      "computedHash": "f903fb98352328f65ee7b433cfbc36fd11e08861d0ba81dc12cdc0feca1e59ea"
+      "skillPath": "swift-concurrency/SKILL.md",
+      "computedHash": "5e1f6433159038c49135028eeeea3a7b9a0a6001c8a4cc8227e391caf35cd985"
     }
   }
 }
