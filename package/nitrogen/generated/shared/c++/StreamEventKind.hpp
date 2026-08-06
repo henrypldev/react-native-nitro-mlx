@@ -39,6 +39,7 @@ namespace margelo::nitro::mlxreactnative {
     TOOL_CALL_COMPLETED      SWIFT_NAME(toolCallCompleted) = 7,
     TOOL_CALL_FAILED      SWIFT_NAME(toolCallFailed) = 8,
     GENERATION_END      SWIFT_NAME(generationEnd) = 9,
+    GENERATION_ERROR      SWIFT_NAME(generationError) = 10,
   } CLOSED_ENUM;
 
 } // namespace margelo::nitro::mlxreactnative
@@ -61,6 +62,7 @@ namespace margelo::nitro {
         case hashString("tool_call_completed"): return margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_COMPLETED;
         case hashString("tool_call_failed"): return margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_FAILED;
         case hashString("generation_end"): return margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_END;
+        case hashString("generation_error"): return margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_ERROR;
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert \"" + unionValue + "\" to enum StreamEventKind - invalid value!");
       }
@@ -77,6 +79,7 @@ namespace margelo::nitro {
         case margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_COMPLETED: return JSIConverter<std::string>::toJSI(runtime, "tool_call_completed");
         case margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_FAILED: return JSIConverter<std::string>::toJSI(runtime, "tool_call_failed");
         case margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_END: return JSIConverter<std::string>::toJSI(runtime, "generation_end");
+        case margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_ERROR: return JSIConverter<std::string>::toJSI(runtime, "generation_error");
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert StreamEventKind to JS - invalid value: "
                                     + std::to_string(static_cast<int>(arg)) + "!");
@@ -98,6 +101,7 @@ namespace margelo::nitro {
         case hashString("tool_call_completed"):
         case hashString("tool_call_failed"):
         case hashString("generation_end"):
+        case hashString("generation_error"):
           return true;
         default:
           return false;

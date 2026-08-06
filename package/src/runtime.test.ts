@@ -141,6 +141,44 @@ describe('stream event envelope mapping', () => {
     })
   })
 
+  it('maps generation_error with error, stage, and partial stats', () => {
+    const stats = {
+      tokenCount: 12,
+      tokensPerSecond: 0,
+      timeToFirstToken: 0,
+      totalTime: 4200,
+      toolExecutionTime: 0,
+    }
+    expect(
+      mapStreamEventEnvelope({
+        kind: 'generation_error',
+        error: 'Generation failed during generate: boom',
+        stage: 'generate',
+        stats,
+      }),
+    ).toEqual({
+      type: 'generation_error',
+      error: 'Generation failed during generate: boom',
+      stage: 'generate',
+      stats,
+    })
+  })
+
+  it('emits generation_error with empty fields rather than dropping it', () => {
+    expect(mapStreamEventEnvelope({ kind: 'generation_error' })).toEqual({
+      type: 'generation_error',
+      error: '',
+      stage: '',
+      stats: {
+        tokenCount: 0,
+        tokensPerSecond: 0,
+        timeToFirstToken: 0,
+        totalTime: 0,
+        toolExecutionTime: 0,
+      },
+    })
+  })
+
   it('returns null for an unrecognized kind', () => {
     expect(
       mapStreamEventEnvelope({

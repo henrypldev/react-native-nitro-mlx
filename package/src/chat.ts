@@ -491,6 +491,10 @@ export class ChatSession {
           assistantMessage.stats = event.stats
           this._setState({ lastStats: event.stats })
           break
+        case 'generation_error':
+          assistantMessage.stats = event.stats
+          this._setState({ lastStats: event.stats })
+          break
       }
     }
 

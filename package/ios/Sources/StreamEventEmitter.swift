@@ -28,6 +28,7 @@ struct StreamEventEmitter {
         arguments: String? = nil,
         result: String? = nil,
         error: String? = nil,
+        stage: String? = nil,
         stats: GenerationStats? = nil
     ) {
         callback(
@@ -42,6 +43,7 @@ struct StreamEventEmitter {
                 arguments: arguments,
                 result: result,
                 error: error,
+                stage: stage,
                 stats: stats
             )
         )
@@ -85,5 +87,9 @@ struct StreamEventEmitter {
 
     func emitGenerationEnd(content: String, stats: GenerationStats) {
         emit(.generationEnd, content: content, stats: stats)
+    }
+
+    func emitGenerationError(error: String, stage: String, stats: GenerationStats) {
+        emit(.generationError, timestamp: nowMs(), error: error, stage: stage, stats: stats)
     }
 }

@@ -230,6 +230,13 @@ export function mapStreamEventEnvelope(
         content: envelope.content ?? '',
         stats: envelope.stats ?? EMPTY_STATS,
       }
+    case 'generation_error':
+      return {
+        type: 'generation_error',
+        error: envelope.error ?? '',
+        stage: envelope.stage ?? '',
+        stats: envelope.stats ?? EMPTY_STATS,
+      }
     default:
       return null
   }

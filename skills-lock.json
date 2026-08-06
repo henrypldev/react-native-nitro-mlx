@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "swift-concurrency": {
+      "source": "avdlee/swift-concurrency-agent-skill",
+      "sourceType": "github",
+      "skillPath": "swift-concurrency/SKILL.md",
+      "computedHash": "5e1f6433159038c49135028eeeea3a7b9a0a6001c8a4cc8227e391caf35cd985"
+    }
+  }
+}
