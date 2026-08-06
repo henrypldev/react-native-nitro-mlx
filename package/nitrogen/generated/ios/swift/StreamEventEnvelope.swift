@@ -92,7 +92,7 @@ public extension StreamEventEnvelope {
   var kind: StreamEventKind {
     return self.__kind
   }
-
+  
   @inline(__always)
   var timestamp: Double? {
     return { () -> Double? in
