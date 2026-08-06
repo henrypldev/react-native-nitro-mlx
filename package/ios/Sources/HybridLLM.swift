@@ -314,8 +314,29 @@ private final class HybridLLMCore {
         let firstTokenTime: Date?
     }
 
+    private final class GenerationProgress {
+        var content = ""
+        var generationTokenCount = 0
+        var generationTimeMs: Double = 0
+        var toolExecutionTimeMs: Double = 0
+        var firstTokenTime: Date?
+
+        func recordContent(_ value: String, firstTokenTime: Date?) {
+            guard !value.isEmpty else { return }
+            content += value
+            if self.firstTokenTime == nil {
+                self.firstTokenTime = firstTokenTime ?? Date()
+            }
+        }
+
+        func recordGenerationInfo(tokens: Int, timeMs: Double) {
+            generationTokenCount += tokens
+            generationTimeMs += timeMs
+        }
+    }
+
     private var session: ChatSession?
-    private var currentTask: Task<String, Error>?
+    private let generationTasks = GenerationTaskController()
     private var container: ModelContainer?
     private var lastStats: GenerationStats = GenerationStats(
         tokenCount: 0,
@@ -336,9 +357,11 @@ private final class HybridLLMCore {
     private var generationParameters: GenerateParameters = GenerateParameters()
     private var tokenBatchSize: Int = 4
     private var contextConfig: LLMContextConfig?
+    private var acceptsGeneration = false
+    private var pendingUnload = false
 
-    var isLoaded: Bool { container != nil }
-    var isGenerating: Bool { currentTask != nil }
+    var isLoaded: Bool { acceptsGeneration && container != nil }
+    var isGenerating: Bool { generationTasks.isActive }
     var modelId: String = ""
     var debug: Bool = false
     var systemPrompt: String = "You are a helpful assistant."
@@ -357,9 +380,7 @@ private final class HybridLLMCore {
     }
 
     private func ensureNotGenerating() throws {
-        if currentTask != nil {
-            throw LLMError.alreadyGenerating
-        }
+        try generationTasks.ensureIdle()
     }
 
     /// Wraps a generation phase so foreign errors surface as
@@ -671,6 +692,16 @@ private final class HybridLLMCore {
         )
     }
 
+    private func makeStats(startTime: Date, progress: GenerationProgress) -> GenerationStats {
+        makeStats(
+            startTime: startTime,
+            firstTokenTime: progress.firstTokenTime,
+            generationTokenCount: progress.generationTokenCount,
+            generationTimeMs: progress.generationTimeMs,
+            toolExecutionTimeMs: progress.toolExecutionTimeMs
+        )
+    }
+
     private func executeToolCall(
         tool: ToolDefinition,
         argsDict: [String: Any]
@@ -685,7 +716,8 @@ private final class HybridLLMCore {
 
     private func runManagedSession(
         prompt: String,
-        batcher: TokenBatcher?
+        batcher: TokenBatcher?,
+        progress: GenerationProgress? = nil
     ) async throws -> ManagedSessionResult {
         let session = try ensureManagedSession()
 
@@ -693,6 +725,10 @@ private final class HybridLLMCore {
         var firstTokenTime: Date?
         var generationTokenCount = 0
         var generationTimeMs: Double = 0
+
+        defer {
+            batcher?.flush()
+        }
 
         for try await generation in session.streamDetails(to: prompt, images: [], videos: []) {
             if Task.isCancelled { break }
@@ -705,10 +741,15 @@ private final class HybridLLMCore {
 
                 output += text
                 batcher?.append(text)
+                progress?.recordContent(text, firstTokenTime: firstTokenTime)
 
             case .info(let info):
                 generationTokenCount += info.generationTokenCount
                 generationTimeMs += info.generateTime * 1000
+                progress?.recordGenerationInfo(
+                    tokens: info.generationTokenCount,
+                    timeMs: info.generateTime * 1000
+                )
                 log(
                     "Generation info: \(info.generationTokenCount) tokens, \(String(format: "%.1f", info.tokensPerSecond)) tokens/s"
                 )
@@ -718,8 +759,6 @@ private final class HybridLLMCore {
             }
         }
 
-        batcher?.flush()
-
         return ManagedSessionResult(
             output: output,
             generationTokenCount: generationTokenCount,
@@ -728,24 +767,50 @@ private final class HybridLLMCore {
         )
     }
 
+    private func resetModelState() {
+        session = nil
+        container = nil
+        tools = []
+        toolSchemas = []
+        seedMessages = []
+        messageHistory = []
+        manageHistory = false
+        generationParameters = GenerateParameters()
+        tokenBatchSize = 4
+        contextConfig = nil
+        modelId = ""
+        Memory.clearCache()
+    }
+
+    private func finishGeneration(id: UInt64) {
+        generationTasks.finish(id: id)
+        if pendingUnload && !generationTasks.isActive {
+            completeUnload()
+        }
+    }
+
+    private func completeUnload() {
+        let memoryBefore = getMemoryUsage()
+        let gpuBefore = getGPUMemoryUsage()
+        log("Before unload - Host: \(memoryBefore), GPU: \(gpuBefore)")
+
+        resetModelState()
+        pendingUnload = false
+
+        let memoryAfter = getMemoryUsage()
+        let gpuAfter = getGPUMemoryUsage()
+        log("After unload - Host: \(memoryAfter), GPU: \(gpuAfter)")
+    }
+
     func load(modelId: String, options: LLMLoadOptions?) async throws {
         loadTask?.cancel()
+        acceptsGeneration = false
+        pendingUnload = false
 
         let task = Task { @MainActor in
-            currentTask?.cancel()
-            currentTask = nil
-            session = nil
-            container = nil
-            tools = []
-            toolSchemas = []
-            seedMessages = []
-            messageHistory = []
-            manageHistory = false
-            generationParameters = GenerateParameters()
-            tokenBatchSize = 4
-            contextConfig = nil
-            self.modelId = ""
-            Memory.clearCache()
+            await generationTasks.cancelAndWait()
+            try Task.checkCancellation()
+            resetModelState()
 
             let memoryAfterCleanup = getMemoryUsage()
             let gpuAfterCleanup = getGPUMemoryUsage()
@@ -796,6 +861,7 @@ private final class HybridLLMCore {
             }
 
             rebuildManagedSession()
+            acceptsGeneration = true
         }
 
         loadTask = task
@@ -803,7 +869,7 @@ private final class HybridLLMCore {
     }
 
     func generate(prompt: String) async throws -> String {
-        guard let container else {
+        guard acceptsGeneration, let container else {
             throw LLMError.notLoaded
         }
         try ensureNotGenerating()
@@ -892,8 +958,8 @@ private final class HybridLLMCore {
                 return result
             }
 
-        currentTask = task
-        defer { currentTask = nil }
+        let generationID = try generationTasks.begin(task)
+        defer { finishGeneration(id: generationID) }
         return try await task.value
     }
 
@@ -902,7 +968,7 @@ private final class HybridLLMCore {
         onToken: @escaping (String) -> Void,
         onToolCall: ((String, String) -> Void)?
     ) async throws -> String {
-        guard let container else {
+        guard acceptsGeneration, let container else {
             throw LLMError.notLoaded
         }
         try ensureNotGenerating()
@@ -999,8 +1065,8 @@ private final class HybridLLMCore {
                 return result
             }
 
-        currentTask = task
-        defer { currentTask = nil }
+        let generationID = try generationTasks.begin(task)
+        defer { finishGeneration(id: generationID) }
         return try await task.value
     }
 
@@ -1008,7 +1074,7 @@ private final class HybridLLMCore {
         prompt: String,
         onEvent: @escaping (StreamEventEnvelope) -> Void
     ) async throws -> String {
-        guard let container else {
+        guard acceptsGeneration, let container else {
             throw LLMError.notLoaded
         }
         try ensureNotGenerating()
@@ -1018,19 +1084,11 @@ private final class HybridLLMCore {
             let emitter = StreamEventEmitter(callback: onEvent)
             emitter.emitGenerationStart()
 
-            var generationTokenCount = 0
-            var generationTimeMs: Double = 0
+            let progress = GenerationProgress()
             var toolExecutionTime: Double = 0
-            var firstTokenTime: Date?
 
             @MainActor func partialStats() -> GenerationStats {
-                makeStats(
-                    startTime: startTime,
-                    firstTokenTime: firstTokenTime,
-                    generationTokenCount: generationTokenCount,
-                    generationTimeMs: generationTimeMs,
-                    toolExecutionTimeMs: toolExecutionTime
-                )
+                makeStats(startTime: startTime, progress: progress)
             }
 
             do {
@@ -1043,11 +1101,12 @@ private final class HybridLLMCore {
                         emitter.emitToken(token)
                     }
                     let result = try await withStage(.generate) {
-                        try await self.runManagedSession(prompt: prompt, batcher: batcher)
+                        try await self.runManagedSession(
+                            prompt: prompt,
+                            batcher: batcher,
+                            progress: progress
+                        )
                     }
-                    generationTokenCount = result.generationTokenCount
-                    generationTimeMs = result.generationTimeMs
-                    firstTokenTime = result.firstTokenTime
 
                     var updatedHistory = messageHistory
                     updatedHistory.append(LLMMessage(role: "user", content: prompt))
@@ -1083,11 +1142,9 @@ private final class HybridLLMCore {
                         toolResults: nil,
                         depth: 0,
                         sink: sink,
-                        onGenerationInfo: { tokens, time in
-                            generationTokenCount += tokens
-                            generationTimeMs += time
-                        },
-                        toolExecutionTime: &toolExecutionTime
+                        onGenerationInfo: { _, _ in },
+                        toolExecutionTime: &toolExecutionTime,
+                        progress: progress
                     )
                 } catch is CancellationError {
                     throw CancellationError()
@@ -1099,8 +1156,6 @@ private final class HybridLLMCore {
                         message: error.localizedDescription
                     )
                 }
-                firstTokenTime = sink.firstTokenTime
-
                 tokenBatcher.flush()
                 try await withStage(.history) {
                     try await self.finalizeManagedHistory(history)
@@ -1111,16 +1166,15 @@ private final class HybridLLMCore {
                 emitter.emitGenerationEnd(content: result, stats: stats)
 
                 log(
-                    "StreamWithEvents complete - \(generationTokenCount) tokens, \(String(format: "%.1f", stats.tokensPerSecond)) tokens/s (tool execution: \(String(format: "%.0f", toolExecutionTime))ms)"
+                    "StreamWithEvents complete - \(progress.generationTokenCount) tokens, \(String(format: "%.1f", stats.tokensPerSecond)) tokens/s (tool execution: \(String(format: "%.0f", progress.toolExecutionTimeMs))ms)"
                 )
                 return result
             } catch is CancellationError {
                 // stop() or a superseding load(): resolve with partial state.
-                // Tokens already reached JS through token events.
                 let stats = partialStats()
                 lastStats = stats
-                emitter.emitGenerationEnd(content: "", stats: stats)
-                return ""
+                emitter.emitGenerationEnd(content: progress.content, stats: stats)
+                return progress.content
             } catch {
                 let stats = partialStats()
                 lastStats = stats
@@ -1134,8 +1188,8 @@ private final class HybridLLMCore {
             }
         }
 
-        currentTask = task
-        defer { currentTask = nil }
+        let generationID = try generationTasks.begin(task)
+        defer { finishGeneration(id: generationID) }
         return try await task.value
     }
 
@@ -1147,7 +1201,8 @@ private final class HybridLLMCore {
         depth: Int,
         sink: GenerationSink,
         onGenerationInfo: @escaping (Int, Double) -> Void,
-        toolExecutionTime: inout Double
+        toolExecutionTime: inout Double,
+        progress: GenerationProgress? = nil
     ) async throws -> String {
         if depth >= maxToolCallDepth {
             log("Max tool call depth reached (\(maxToolCallDepth))")
@@ -1156,6 +1211,14 @@ private final class HybridLLMCore {
 
         var output = ""
         var pendingToolCalls: [(id: String, tool: ToolDefinition, args: [String: Any])] = []
+        var didFinalizeStream = false
+
+        defer {
+            if !didFinalizeStream {
+                let suffix = sink.finalizeStream()
+                progress?.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
+            }
+        }
 
         let chat = buildChatMessages(
             history: history,
@@ -1164,23 +1227,24 @@ private final class HybridLLMCore {
             depth: depth
         )
         let userInput = UserInput(chat: chat, tools: configuredToolSchemas())
-        let lmInput = try await container.prepare(input: userInput)
+        let lmInput = try await withStage(.prepare) {
+            try await container.prepare(input: userInput)
+        }
         let parameters = generationParameters
 
-        let stream = try await container.perform { context in
-            try MLXLMCommon.generate(
-                input: lmInput,
-                parameters: parameters,
-                context: context
-            )
-        }
+        let stream = try await container.generate(
+            input: lmInput,
+            parameters: parameters
+        )
 
         for await generation in stream {
             if Task.isCancelled { break }
 
             switch generation {
             case .chunk(let text):
-                output += sink.ingest(chunk: text)
+                let content = sink.ingest(chunk: text)
+                output += content
+                progress?.recordContent(content, firstTokenTime: sink.firstTokenTime)
 
             case .toolCall(let toolCall):
                 sink.flush()
@@ -1206,10 +1270,21 @@ private final class HybridLLMCore {
                     ? Double(info.generationTokenCount) / info.tokensPerSecond * 1000
                     : 0
                 onGenerationInfo(info.generationTokenCount, generationTime)
+                progress?.recordGenerationInfo(
+                    tokens: info.generationTokenCount,
+                    timeMs: generationTime
+                )
             }
         }
 
-        output += sink.finalizeStream()
+        let suffix = sink.finalizeStream()
+        didFinalizeStream = true
+        output += suffix
+        progress?.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
+
+        if Task.isCancelled {
+            return output
+        }
 
         if !pendingToolCalls.isEmpty {
             log("Executing \(pendingToolCalls.count) tool call(s)")
@@ -1245,7 +1320,13 @@ private final class HybridLLMCore {
                 return results
             }
 
-            toolExecutionTime += Date().timeIntervalSince(toolStartTime) * 1000
+            let elapsedToolTime = Date().timeIntervalSince(toolStartTime) * 1000
+            toolExecutionTime += elapsedToolTime
+            progress?.toolExecutionTimeMs += elapsedToolTime
+
+            if Task.isCancelled {
+                return output
+            }
 
             if depth == 0 {
                 history.append(LLMMessage(role: "user", content: prompt))
@@ -1267,7 +1348,8 @@ private final class HybridLLMCore {
                 depth: depth + 1,
                 sink: sink,
                 onGenerationInfo: onGenerationInfo,
-                toolExecutionTime: &toolExecutionTime
+                toolExecutionTime: &toolExecutionTime,
+                progress: progress
             )
 
             return output + continuation
@@ -1327,37 +1409,19 @@ private final class HybridLLMCore {
     }
 
     func stop() {
-        currentTask?.cancel()
-        currentTask = nil
+        generationTasks.cancel()
     }
 
     func unload() {
         loadTask?.cancel()
         loadTask = nil
+        acceptsGeneration = false
+        pendingUnload = true
+        generationTasks.cancel()
 
-        let memoryBefore = getMemoryUsage()
-        let gpuBefore = getGPUMemoryUsage()
-        log("Before unload - Host: \(memoryBefore), GPU: \(gpuBefore)")
-
-        currentTask?.cancel()
-        currentTask = nil
-        session = nil
-        container = nil
-        tools = []
-        toolSchemas = []
-        seedMessages = []
-        messageHistory = []
-        manageHistory = false
-        generationParameters = GenerateParameters()
-        tokenBatchSize = 4
-        contextConfig = nil
-        modelId = ""
-
-        MLX.Memory.clearCache()
-
-        let memoryAfter = getMemoryUsage()
-        let gpuAfter = getGPUMemoryUsage()
-        log("After unload - Host: \(memoryAfter), GPU: \(gpuAfter)")
+        if !generationTasks.isActive {
+            completeUnload()
+        }
     }
 
     func getLastGenerationStats() -> GenerationStats {
