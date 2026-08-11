@@ -273,7 +273,7 @@ const final = await STT.stopListening()      // Stop and get final transcript
 | Property | Type | Description |
 |----------|------|-------------|
 | `voice` | `string` | Voice to use (alba, azelma, cosette, eponine, fantine, javert, jean, marius) |
-| `speed` | `number` | Speech speed multiplier |
+| `speed` | `number` | Speech speed multiplier (`0.5`–`2.0`, default `1.0`). Currently uses linear resampling, so pitch changes with speed. |
 
 | Property | Description |
 |----------|-------------|

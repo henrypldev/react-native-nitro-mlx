@@ -14,6 +14,7 @@
     "test:ios-history-trim": "swiftc ios/Sources/ManagedHistoryTrimPlanner.swift ios/Tests/ManagedHistoryTrimPlannerSpyTests.swift -o /tmp/ManagedHistoryTrimPlannerSpyTests && /tmp/ManagedHistoryTrimPlannerSpyTests",
     "test:ios-llm-error": "swiftc ios/Sources/LLMError.swift ios/Tests/LLMErrorTests.swift -o /tmp/LLMErrorTests && /tmp/LLMErrorTests",
     "test:ios-generation-task": "swiftc ios/Sources/LLMError.swift ios/Sources/GenerationTaskController.swift ios/Tests/GenerationTaskControllerTests.swift -o /tmp/GenerationTaskControllerTests && /tmp/GenerationTaskControllerTests",
+    "test:ios-tts-speed": "swiftc ios/Sources/TTSSpeed.swift ios/Tests/TTSSpeedTests.swift -o /tmp/TTSSpeedTests && /tmp/TTSSpeedTests",
     "clean": "rm -rf android/build node_modules/**/android/build lib android/.cxx node_modules/**/android/.cxx",
     "release": "release-it",
     "specs": "bun typecheck && nitrogen --logLevel=\\\"debug\\\" && bun run build",

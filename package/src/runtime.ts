@@ -10,6 +10,8 @@ import type { STTLoadOptions } from './specs/STT.nitro'
 import type { TTSGenerateOptions, TTSLoadOptions } from './specs/TTS.nitro'
 
 const ERROR_PREFIX = '[react-native-nitro-mlx]'
+export const TTS_MIN_SPEED = 0.5
+export const TTS_MAX_SPEED = 2
 const runtimeConsole = (
   globalThis as { console?: { error?: (...args: unknown[]) => void } }
 ).console
@@ -158,8 +160,14 @@ export function validateTTSGenerateOptions(
   }
 
   if (options.speed !== undefined) {
-    if (!Number.isFinite(options.speed) || options.speed <= 0) {
-      throw new RangeError(`${ERROR_PREFIX} TTS speed must be a positive finite number.`)
+    if (
+      !Number.isFinite(options.speed) ||
+      options.speed < TTS_MIN_SPEED ||
+      options.speed > TTS_MAX_SPEED
+    ) {
+      throw new RangeError(
+        `${ERROR_PREFIX} TTS speed must be between ${TTS_MIN_SPEED} and ${TTS_MAX_SPEED}.`,
+      )
     }
   }
 

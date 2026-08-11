@@ -6,6 +6,10 @@ export interface TTSLoadOptions {
 
 export interface TTSGenerateOptions {
   voice?: string
+  /**
+   * Speech-rate multiplier. Supported range is 0.5 (slowest) through 2.0 (fastest).
+   * Currently implemented with linear resampling, so pitch changes with speech rate.
+   */
   speed?: number
   /**
    * Fractional generation progress (0-1). Only fires during `stream()`, and only for
