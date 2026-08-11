@@ -20,15 +20,23 @@ class HybridTTS: HybridTTSSpec {
     Double(model?.sampleRate ?? 24000)
   }
 
-  private func mlxArrayToArrayBuffer(_ audio: MLXArray) -> ArrayBuffer {
+  private func mlxArrayToArrayBuffer(
+    _ audio: MLXArray,
+    speed: TTSSpeed,
+    outputSampleCount: Int? = nil
+  ) -> ArrayBuffer {
     let evaluated = audio.asType(.float32)
     MLX.eval(evaluated)
-    let arrayData = evaluated.asData(access: .copy)
-    let byteSize = arrayData.data.count
+    let samples = speed.adjustSpeed(
+      evaluated.asArray(Float.self),
+      outputSampleCount: outputSampleCount
+    )
+    let byteSize = samples.count * MemoryLayout<Float>.size
     let buffer = ArrayBuffer.allocate(size: byteSize)
-    arrayData.data.withUnsafeBytes { srcPtr in
+    samples.withUnsafeBytes { srcPtr in
+      guard byteSize > 0, let source = srcPtr.baseAddress else { return }
       UnsafeMutableRawPointer(buffer.data).copyMemory(
-        from: srcPtr.baseAddress!,
+        from: source,
         byteCount: byteSize
       )
     }
@@ -45,7 +53,7 @@ class HybridTTS: HybridTTSSpec {
         self.model = nil
         MLX.Memory.clearCache()
 
-        let loadedModel = try await TTSModelUtils.loadModel(modelRepo: modelId)
+        let loadedModel = try await TTS.loadModel(modelRepo: modelId)
 
         try Task.checkCancellation()
 
@@ -67,6 +75,7 @@ class HybridTTS: HybridTTSSpec {
     guard let model else {
       throw TTSError.notLoaded
     }
+    let speed = try TTSSpeed(options?.speed)
 
     return Promise.async { [self] in
       let task = Task<Any, Error> {
@@ -77,7 +86,7 @@ class HybridTTS: HybridTTSSpec {
           refText: nil,
           language: nil
         )
-        return self.mlxArrayToArrayBuffer(audio) as Any
+        return self.mlxArrayToArrayBuffer(audio, speed: speed) as Any
       }
 
       self.activeTask = task
@@ -95,9 +104,11 @@ class HybridTTS: HybridTTSSpec {
     guard let model else {
       throw TTSError.notLoaded
     }
+    let speed = try TTSSpeed(options?.speed)
 
     return Promise.async { [self] in
       let task = Task<Any, Error> {
+        var speedPlanner = TTSStreamSpeedPlanner(speed: speed)
         let stream = model.generateStream(
           text: text,
           voice: options?.voice,
@@ -112,7 +123,15 @@ class HybridTTS: HybridTTSSpec {
 
           switch event {
           case .audio(let audio):
-            let buffer = self.mlxArrayToArrayBuffer(audio)
+            let outputSampleCount = speedPlanner.outputSampleCount(
+              for: audio.dim(0)
+            )
+            guard outputSampleCount > 0 else { continue }
+            let buffer = self.mlxArrayToArrayBuffer(
+              audio,
+              speed: speed,
+              outputSampleCount: outputSampleCount
+            )
             onAudioChunk(buffer)
           case .progress(let value):
             options?.onProgress?(value)

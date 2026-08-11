@@ -6,6 +6,8 @@ import {
   createSafeCallback,
   mapStreamEventEnvelope,
   safeJsonParse,
+  TTS_MAX_SPEED,
+  TTS_MIN_SPEED,
   validateLLMLoadOptions,
   validateTTSGenerateOptions,
 } from './runtime'
@@ -71,8 +73,24 @@ describe('runtime guards', () => {
   })
 
   it('rejects invalid TTS generation options', () => {
-    expect(() => validateTTSGenerateOptions({ speed: 0 })).toThrow(
-      'must be a positive finite number',
+    expect(() => validateTTSGenerateOptions({ speed: TTS_MIN_SPEED - 0.01 })).toThrow(
+      'must be between 0.5 and 2',
+    )
+    expect(() => validateTTSGenerateOptions({ speed: TTS_MAX_SPEED + 0.01 })).toThrow(
+      'must be between 0.5 and 2',
+    )
+    expect(() => validateTTSGenerateOptions({ speed: Number.POSITIVE_INFINITY })).toThrow(
+      'must be between 0.5 and 2',
+    )
+    expect(() => validateTTSGenerateOptions({ speed: Number.NaN })).toThrow(
+      'must be between 0.5 and 2',
+    )
+    expect(validateTTSGenerateOptions({ speed: TTS_MIN_SPEED })?.speed).toBe(
+      TTS_MIN_SPEED,
+    )
+    expect(validateTTSGenerateOptions({ speed: 1 })?.speed).toBe(1)
+    expect(validateTTSGenerateOptions({ speed: TTS_MAX_SPEED })?.speed).toBe(
+      TTS_MAX_SPEED,
     )
     expect(() => validateTTSGenerateOptions({ voice: '   ' })).toThrow(
       'must be a non-empty string',
