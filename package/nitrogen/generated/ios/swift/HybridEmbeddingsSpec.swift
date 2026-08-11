@@ -17,8 +17,8 @@ public protocol HybridEmbeddingsSpec_protocol: HybridObject {
   // Methods
   func load(modelId: String, options: EmbeddingsLoadOptions?) throws -> Promise<Void>
   func unload() throws -> Void
-  func embed(text: String) throws -> Promise<ArrayBuffer>
-  func embedBatch(texts: [String]) throws -> Promise<[ArrayBuffer]>
+  func embed(text: String, options: EmbeddingsEmbedOptions?) throws -> Promise<ArrayBuffer>
+  func embedBatch(texts: [String], options: EmbeddingsEmbedOptions?) throws -> Promise<[ArrayBuffer]>
 }
 
 public extension HybridEmbeddingsSpec_protocol {

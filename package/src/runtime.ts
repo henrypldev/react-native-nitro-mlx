@@ -1,4 +1,7 @@
-import type { EmbeddingsLoadOptions } from './specs/Embeddings.nitro'
+import type {
+  EmbeddingsEmbedOptions,
+  EmbeddingsLoadOptions,
+} from './specs/Embeddings.nitro'
 import type {
   GenerationStats,
   LLMLoadOptions,
@@ -140,6 +143,35 @@ export function validateEmbeddingsLoadOptions(
   options?: EmbeddingsLoadOptions,
 ): EmbeddingsLoadOptions | undefined {
   return validateLoadOptions(options, 'Embeddings')
+}
+
+/** Mirrors `EmbeddingsBatchPlanner.maxBatchSize` on the native side. */
+export const EMBEDDINGS_MAX_BATCH_SIZE = 64
+
+export function validateEmbeddingsEmbedOptions(
+  options?: EmbeddingsEmbedOptions,
+): EmbeddingsEmbedOptions | undefined {
+  if (!options) {
+    return undefined
+  }
+  if (options.truncate !== undefined) {
+    assertBoolean(options.truncate, 'Embeddings truncate')
+  }
+  return options
+}
+
+export function validateEmbeddingsBatch(texts: string[]): string[] {
+  if (!Array.isArray(texts) || texts.length === 0) {
+    throw new TypeError(
+      `${ERROR_PREFIX} Embeddings.embedBatch requires a non-empty array.`,
+    )
+  }
+  if (texts.length > EMBEDDINGS_MAX_BATCH_SIZE) {
+    throw new RangeError(
+      `${ERROR_PREFIX} Embeddings.embedBatch accepts at most ${EMBEDDINGS_MAX_BATCH_SIZE} texts per call, received ${texts.length}. Split the batch.`,
+    )
+  }
+  return texts.map((t, i) => assertNonEmptyString(t, `Embeddings texts[${i}]`))
 }
 
 export function validateTTSLoadOptions(

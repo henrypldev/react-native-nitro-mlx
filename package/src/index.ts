@@ -37,6 +37,7 @@ export {
 } from './models'
 export type {
   Embeddings as EmbeddingsSpec,
+  EmbeddingsEmbedOptions,
   EmbeddingsLoadOptions,
 } from './specs/Embeddings.nitro'
 export type {

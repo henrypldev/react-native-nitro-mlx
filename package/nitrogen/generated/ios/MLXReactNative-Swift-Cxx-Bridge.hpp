@@ -10,6 +10,8 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `ArrayBufferHolder` to properly resolve imports.
 namespace NitroModules { class ArrayBufferHolder; }
+// Forward declaration of `EmbeddingsEmbedOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct EmbeddingsEmbedOptions; }
 // Forward declaration of `EmbeddingsLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct EmbeddingsLoadOptions; }
 // Forward declaration of `GenerationStats` to properly resolve imports.
@@ -60,6 +62,7 @@ namespace MLXReactNative { class HybridSTTSpec_cxx; }
 namespace MLXReactNative { class HybridTTSSpec_cxx; }
 
 // Include C++ defined types
+#include "EmbeddingsEmbedOptions.hpp"
 #include "EmbeddingsLoadOptions.hpp"
 #include "GenerationStats.hpp"
 #include "HybridEmbeddingsSpec.hpp"
@@ -239,6 +242,36 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return Func_void_std__shared_ptr_ArrayBuffer__Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<EmbeddingsEmbedOptions>
+  /**
+   * Specialized version of `std::optional<EmbeddingsEmbedOptions>`.
+   */
+  using std__optional_EmbeddingsEmbedOptions_ = std::optional<EmbeddingsEmbedOptions>;
+  inline std::optional<EmbeddingsEmbedOptions> create_std__optional_EmbeddingsEmbedOptions_(const EmbeddingsEmbedOptions& value) noexcept {
+    return std::optional<EmbeddingsEmbedOptions>(value);
+  }
+  inline bool has_value_std__optional_EmbeddingsEmbedOptions_(const std::optional<EmbeddingsEmbedOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline EmbeddingsEmbedOptions get_std__optional_EmbeddingsEmbedOptions_(const std::optional<EmbeddingsEmbedOptions>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::vector<std::shared_ptr<ArrayBuffer>>
   /**
    * Specialized version of `std::vector<std::shared_ptr<ArrayBuffer>>`.
@@ -366,21 +399,6 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return optional.has_value();
   }
   inline std::vector<LLMMessage> get_std__optional_std__vector_LLMMessage__(const std::optional<std::vector<LLMMessage>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<bool>
-  /**
-   * Specialized version of `std::optional<bool>`.
-   */
-  using std__optional_bool_ = std::optional<bool>;
-  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
-    return std::optional<bool>(value);
-  }
-  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
     return optional.value();
   }
   
