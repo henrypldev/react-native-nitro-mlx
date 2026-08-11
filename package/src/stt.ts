@@ -1,11 +1,18 @@
 import { NitroModules } from 'react-native-nitro-modules'
 import {
-  assertArrayBuffer,
   assertNonEmptyString,
   createSafeCallback,
+  validateSTTAudio,
+  validateSTTListeningOptions,
   validateSTTLoadOptions,
+  validateSTTTranscribeOptions,
 } from './runtime'
-import type { STTLoadOptions, STT as STTSpec } from './specs/STT.nitro'
+import type {
+  STTListeningOptions,
+  STTLoadOptions,
+  STT as STTSpec,
+  STTTranscribeOptions,
+} from './specs/STT.nitro'
 
 let instance: STTSpec | null = null
 
@@ -27,22 +34,27 @@ export const STT = {
     )
   },
 
-  transcribe(audio: ArrayBuffer): Promise<string> {
-    return getInstance().transcribe(assertArrayBuffer(audio, 'STT audio'))
+  transcribe(audio: ArrayBuffer, options?: STTTranscribeOptions): Promise<string> {
+    return getInstance().transcribe(
+      validateSTTAudio(audio, 'STT audio'),
+      validateSTTTranscribeOptions(options),
+    )
   },
 
   transcribeStream(
     audio: ArrayBuffer,
     onToken: (token: string) => void,
+    options?: STTTranscribeOptions,
   ): Promise<string> {
     return getInstance().transcribeStream(
-      assertArrayBuffer(audio, 'STT audio'),
+      validateSTTAudio(audio, 'STT audio'),
       createSafeCallback('STT.transcribeStream onToken', onToken) ?? (() => {}),
+      validateSTTTranscribeOptions(options),
     )
   },
 
-  startListening(): Promise<void> {
-    return getInstance().startListening()
+  startListening(options?: STTListeningOptions): Promise<void> {
+    return getInstance().startListening(validateSTTListeningOptions(options))
   },
 
   transcribeBuffer(): Promise<string> {

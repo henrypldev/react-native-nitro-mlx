@@ -9,7 +9,11 @@ import type {
   StreamEventEnvelope,
   ToolDefinition,
 } from './specs/LLM.nitro'
-import type { STTLoadOptions } from './specs/STT.nitro'
+import type {
+  STTListeningOptions,
+  STTLoadOptions,
+  STTTranscribeOptions,
+} from './specs/STT.nitro'
 import type { TTSGenerateOptions, TTSLoadOptions } from './specs/TTS.nitro'
 
 const ERROR_PREFIX = '[react-native-nitro-mlx]'
@@ -137,6 +141,105 @@ export function validateSTTLoadOptions(
   options?: STTLoadOptions,
 ): STTLoadOptions | undefined {
   return validateLoadOptions(options, 'STT')
+}
+
+/** Mirrors `STTAudioContract.modelSampleRate` on the native side. */
+export const STT_SAMPLE_RATE = 16000
+export const STT_MIN_SAMPLE_RATE = 8000
+export const STT_MAX_SAMPLE_RATE = 48000
+
+/**
+ * Magic-byte signatures of encoded audio containers commonly passed by mistake.
+ * Mirrors `STTAudioContract.signatures` on the native side. MP3 frame sync
+ * (0xFF 0xEx) is deliberately not sniffed — those bytes occur in raw Float32 data.
+ */
+const STT_ENCODED_SIGNATURES: ReadonlyArray<{
+  magic: string
+  offset: number
+  format: string
+}> = [
+  { magic: 'RIFF', offset: 0, format: 'WAV (RIFF)' },
+  { magic: 'ID3', offset: 0, format: 'MP3 (ID3)' },
+  { magic: 'fLaC', offset: 0, format: 'FLAC' },
+  { magic: 'OggS', offset: 0, format: 'Ogg' },
+  { magic: 'FORM', offset: 0, format: 'AIFF (FORM)' },
+  { magic: 'caff', offset: 0, format: 'CAF' },
+  { magic: 'ftyp', offset: 4, format: 'MP4/M4A' },
+]
+
+function detectEncodedAudioFormat(buffer: ArrayBuffer): string | null {
+  const view = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 12))
+  for (const { magic, offset, format } of STT_ENCODED_SIGNATURES) {
+    if (view.length < offset + magic.length) {
+      continue
+    }
+    let matches = true
+    for (let i = 0; i < magic.length; i++) {
+      if (view[offset + i] !== magic.charCodeAt(i)) {
+        matches = false
+        break
+      }
+    }
+    if (matches) {
+      return format
+    }
+  }
+  return null
+}
+
+export function validateSTTAudio(value: unknown, name: string): ArrayBuffer {
+  const buffer = assertArrayBuffer(value, name)
+  if (buffer.byteLength % 4 !== 0) {
+    throw new TypeError(
+      `${ERROR_PREFIX} ${name} must be raw native-endian mono Float32 PCM; byte length ${buffer.byteLength} is not a multiple of 4.`,
+    )
+  }
+  const format = detectEncodedAudioFormat(buffer)
+  if (format) {
+    throw new TypeError(
+      `${ERROR_PREFIX} ${name} looks like an encoded ${format} container. Decode it to raw mono Float32 PCM before transcribing.`,
+    )
+  }
+  return buffer
+}
+
+function validateSTTLanguage(language: unknown): void {
+  if (language !== undefined) {
+    assertNonEmptyString(language, 'STT language')
+  }
+}
+
+export function validateSTTTranscribeOptions(
+  options?: STTTranscribeOptions,
+): STTTranscribeOptions | undefined {
+  if (!options) {
+    return undefined
+  }
+  if (options.sampleRate !== undefined) {
+    if (!Number.isInteger(options.sampleRate)) {
+      throw new TypeError(`${ERROR_PREFIX} STT sampleRate must be an integer in Hz.`)
+    }
+    if (
+      options.sampleRate < STT_MIN_SAMPLE_RATE ||
+      options.sampleRate > STT_MAX_SAMPLE_RATE
+    ) {
+      throw new RangeError(
+        `${ERROR_PREFIX} STT sampleRate must be between ${STT_MIN_SAMPLE_RATE} and ${STT_MAX_SAMPLE_RATE} Hz.`,
+      )
+    }
+  }
+  validateSTTLanguage(options.language)
+  return options
+}
+
+export function validateSTTListeningOptions(
+  options?: STTListeningOptions,
+): STTListeningOptions | undefined {
+  if (!options) {
+    return undefined
+  }
+  validateSTTLanguage(options.language)
+  return options
 }
 
 export function validateEmbeddingsLoadOptions(

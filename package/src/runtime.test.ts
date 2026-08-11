@@ -6,12 +6,18 @@ import {
   createSafeCallback,
   EMBEDDINGS_MAX_BATCH_SIZE,
   mapStreamEventEnvelope,
+  STT_MAX_SAMPLE_RATE,
+  STT_MIN_SAMPLE_RATE,
+  STT_SAMPLE_RATE,
   safeJsonParse,
   TTS_MAX_SPEED,
   TTS_MIN_SPEED,
   validateEmbeddingsBatch,
   validateEmbeddingsEmbedOptions,
   validateLLMLoadOptions,
+  validateSTTAudio,
+  validateSTTListeningOptions,
+  validateSTTTranscribeOptions,
   validateTTSGenerateOptions,
 } from './runtime'
 
@@ -250,5 +256,102 @@ describe('embeddings guards', () => {
 
   it('rejects batches with empty items', () => {
     expect(() => validateEmbeddingsBatch(['ok', '  '])).toThrow('texts[1]')
+  })
+})
+
+function audioWithHeader(ascii: string, offset = 0, byteLength = 64): ArrayBuffer {
+  const buffer = new ArrayBuffer(byteLength)
+  const view = new Uint8Array(buffer)
+  for (let i = 0; i < ascii.length; i++) {
+    view[offset + i] = ascii.charCodeAt(i)
+  }
+  return buffer
+}
+
+describe('STT audio contract', () => {
+  it('exposes the model sample-rate constants', () => {
+    expect(STT_SAMPLE_RATE).toBe(16000)
+    expect(STT_MIN_SAMPLE_RATE).toBe(8000)
+    expect(STT_MAX_SAMPLE_RATE).toBe(48000)
+  })
+
+  it('accepts a raw Float32 buffer', () => {
+    const buffer = new Float32Array([0, 0.5, -0.5, 1]).buffer
+    expect(validateSTTAudio(buffer, 'STT audio')).toBe(buffer)
+  })
+
+  it('rejects byte lengths that are not a multiple of 4', () => {
+    expect(() => validateSTTAudio(new ArrayBuffer(6), 'STT audio')).toThrow(
+      'multiple of 4',
+    )
+  })
+
+  it('rejects recognizable encoded containers', () => {
+    expect(() => validateSTTAudio(audioWithHeader('RIFF'), 'STT audio')).toThrow(
+      'WAV (RIFF)',
+    )
+    expect(() => validateSTTAudio(audioWithHeader('ID3'), 'STT audio')).toThrow(
+      'MP3 (ID3)',
+    )
+    expect(() => validateSTTAudio(audioWithHeader('fLaC'), 'STT audio')).toThrow('FLAC')
+    expect(() => validateSTTAudio(audioWithHeader('OggS'), 'STT audio')).toThrow('Ogg')
+    expect(() => validateSTTAudio(audioWithHeader('FORM'), 'STT audio')).toThrow('AIFF')
+    expect(() => validateSTTAudio(audioWithHeader('caff'), 'STT audio')).toThrow('CAF')
+    expect(() => validateSTTAudio(audioWithHeader('ftyp', 4), 'STT audio')).toThrow(
+      'MP4/M4A',
+    )
+  })
+
+  it('does not misdetect MP3 frame sync in raw sample data', () => {
+    const buffer = new ArrayBuffer(8)
+    new Uint8Array(buffer).set([0xff, 0xfb, 0x90, 0x00, 0, 0, 0, 0])
+    expect(validateSTTAudio(buffer, 'STT audio')).toBe(buffer)
+  })
+
+  it('rejects empty and non-ArrayBuffer audio', () => {
+    expect(() => validateSTTAudio(new ArrayBuffer(0), 'STT audio')).toThrow(
+      'must not be empty',
+    )
+    expect(() => validateSTTAudio('audio', 'STT audio')).toThrow('must be an ArrayBuffer')
+  })
+
+  it('accepts transcribe options within the contract', () => {
+    expect(validateSTTTranscribeOptions(undefined)).toBeUndefined()
+    expect(validateSTTTranscribeOptions({})).toEqual({})
+    expect(validateSTTTranscribeOptions({ sampleRate: 24000 })).toEqual({
+      sampleRate: 24000,
+    })
+    expect(validateSTTTranscribeOptions({ language: 'Spanish' })).toEqual({
+      language: 'Spanish',
+    })
+  })
+
+  it('rejects out-of-range or non-integer sample rates', () => {
+    expect(() =>
+      validateSTTTranscribeOptions({ sampleRate: STT_MIN_SAMPLE_RATE - 1 }),
+    ).toThrow('between 8000 and 48000')
+    expect(() =>
+      validateSTTTranscribeOptions({ sampleRate: STT_MAX_SAMPLE_RATE + 1 }),
+    ).toThrow('between 8000 and 48000')
+    expect(() => validateSTTTranscribeOptions({ sampleRate: Number.NaN })).toThrow(
+      'integer',
+    )
+    expect(() => validateSTTTranscribeOptions({ sampleRate: 44100.5 })).toThrow('integer')
+  })
+
+  it('rejects empty languages', () => {
+    expect(() => validateSTTTranscribeOptions({ language: '  ' })).toThrow(
+      'non-empty string',
+    )
+    expect(() => validateSTTListeningOptions({ language: '' })).toThrow(
+      'non-empty string',
+    )
+  })
+
+  it('accepts listening options', () => {
+    expect(validateSTTListeningOptions(undefined)).toBeUndefined()
+    expect(validateSTTListeningOptions({ language: 'French' })).toEqual({
+      language: 'French',
+    })
   })
 })

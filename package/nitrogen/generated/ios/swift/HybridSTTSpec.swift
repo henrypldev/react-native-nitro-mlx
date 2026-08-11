@@ -17,9 +17,9 @@ public protocol HybridSTTSpec_protocol: HybridObject {
 
   // Methods
   func load(modelId: String, options: STTLoadOptions?) throws -> Promise<Void>
-  func transcribe(audio: ArrayBuffer) throws -> Promise<String>
-  func transcribeStream(audio: ArrayBuffer, onToken: @escaping (_ token: String) -> Void) throws -> Promise<String>
-  func startListening() throws -> Promise<Void>
+  func transcribe(audio: ArrayBuffer, options: STTTranscribeOptions?) throws -> Promise<String>
+  func transcribeStream(audio: ArrayBuffer, onToken: @escaping (_ token: String) -> Void, options: STTTranscribeOptions?) throws -> Promise<String>
+  func startListening(options: STTListeningOptions?) throws -> Promise<Void>
   func transcribeBuffer() throws -> Promise<String>
   func stopListening() throws -> Promise<String>
   func stop() throws -> Void

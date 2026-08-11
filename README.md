@@ -212,13 +212,49 @@ await STT.load(MLXModel.GLM_ASR_Nano_4bit, {
   }
 })
 
-// Transcribe an audio buffer
+// Transcribe an audio buffer (raw mono Float32 PCM, 16 kHz by default)
 const text = await STT.transcribe(audioBuffer)
+
+// PCM at a different sample rate? Say so — it is resampled natively.
+// The language is auto-detected unless you force one.
+const spanish = await STT.transcribe(ttsBuffer, {
+  sampleRate: 24000, // e.g. audio produced by this library's TTS
+  language: 'Spanish',
+})
 
 // Or use live microphone transcription
 await STT.startListening()
 const partial = await STT.transcribeBuffer() // Get current transcript
 const final = await STT.stopListening()      // Stop and get final transcript
+```
+
+#### Audio format
+
+`transcribe` and `transcribeStream` accept **raw native-endian mono Float32 PCM**
+only. The buffer is validated before inference:
+
+- Encoded containers (WAV, MP3 with ID3 tag, FLAC, Ogg, AIFF, CAF, MP4/M4A) are
+  rejected with an error that names the detected format. Decode to raw PCM first.
+- Byte lengths that are not a multiple of 4 (e.g. Int16 samples) are rejected.
+- The default sample rate is 16000 Hz (the model's input rate). Pass
+  `sampleRate` for other rates: values between 8000 and 48000 Hz are linearly
+  resampled to 16 kHz before inference; values outside that range are rejected.
+
+#### Microphone permission
+
+Live transcription (`startListening`) requires `NSMicrophoneUsageDescription` in
+your app's `Info.plist`. With Expo, set it in `app.json`:
+
+```json
+{
+  "expo": {
+    "ios": {
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app uses the microphone for speech-to-text transcription."
+      }
+    }
+  }
+}
 ```
 
 ## API
@@ -287,13 +323,26 @@ const final = await STT.stopListening()      // Stop and get final transcript
 | Method | Description |
 |--------|-------------|
 | `load(modelId: string, options?: STTLoadOptions): Promise<void>` | Load an STT model into memory |
-| `transcribe(audio: ArrayBuffer): Promise<string>` | Transcribe an audio buffer |
-| `transcribeStream(audio: ArrayBuffer, onToken: (token: string) => void): Promise<string>` | Stream transcription tokens as they're generated |
-| `startListening(): Promise<void>` | Start capturing audio from the microphone |
+| `transcribe(audio: ArrayBuffer, options?: STTTranscribeOptions): Promise<string>` | Transcribe a raw mono Float32 PCM buffer |
+| `transcribeStream(audio: ArrayBuffer, onToken: (token: string) => void, options?: STTTranscribeOptions): Promise<string>` | Stream transcription tokens as they're generated |
+| `startListening(options?: STTListeningOptions): Promise<void>` | Start capturing audio from the microphone (requires `NSMicrophoneUsageDescription`) |
 | `transcribeBuffer(): Promise<string>` | Transcribe the current audio buffer while listening |
 | `stopListening(): Promise<string>` | Stop listening and transcribe final audio |
 | `stop(): void` | Stop the current transcription |
 | `unload(): void` | Unload the model and free memory |
+
+#### STTTranscribeOptions
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sampleRate` | `number` | Sample rate of the provided PCM in Hz (default `16000`). Rates between `8000` and `48000` are resampled to 16 kHz natively; others are rejected. |
+| `language` | `string` | Spoken language (e.g. `'English'`, `'Spanish'`). Omitted → auto-detected. |
+
+#### STTListeningOptions
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `language` | `string` | Spoken language applied to `transcribeBuffer`/`stopListening`. Omitted → auto-detected. |
 
 | Property | Description |
 |----------|-------------|

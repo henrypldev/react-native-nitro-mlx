@@ -170,9 +170,9 @@ open class HybridSTTSpec_cxx {
   }
   
   @inline(__always)
-  public final func transcribe(audio: ArrayBuffer) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func transcribe(audio: ArrayBuffer, options: bridge.std__optional_STTTranscribeOptions_) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
     do {
-      let __result = try self.__implementation.transcribe(audio: audio)
+      let __result = try self.__implementation.transcribe(audio: audio, options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
@@ -189,14 +189,14 @@ open class HybridSTTSpec_cxx {
   }
   
   @inline(__always)
-  public final func transcribeStream(audio: ArrayBuffer, onToken: bridge.Func_void_std__string) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func transcribeStream(audio: ArrayBuffer, onToken: bridge.Func_void_std__string, options: bridge.std__optional_STTTranscribeOptions_) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
     do {
       let __result = try self.__implementation.transcribeStream(audio: audio, onToken: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onToken)
         return { (__token: String) -> Void in
           __wrappedFunction.call(std.string(__token))
         }
-      }())
+      }(), options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
@@ -213,9 +213,9 @@ open class HybridSTTSpec_cxx {
   }
   
   @inline(__always)
-  public final func startListening() -> bridge.Result_std__shared_ptr_Promise_void___ {
+  public final func startListening(options: bridge.std__optional_STTListeningOptions_) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
-      let __result = try self.__implementation.startListening()
+      let __result = try self.__implementation.startListening(options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
         let __promise = bridge.create_std__shared_ptr_Promise_void__()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)

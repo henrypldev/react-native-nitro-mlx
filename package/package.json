@@ -16,6 +16,7 @@
     "test:ios-generation-task": "swiftc ios/Sources/LLMError.swift ios/Sources/GenerationTaskController.swift ios/Tests/GenerationTaskControllerTests.swift -o /tmp/GenerationTaskControllerTests && /tmp/GenerationTaskControllerTests",
     "test:ios-tts-speed": "swiftc ios/Sources/TTSSpeed.swift ios/Tests/TTSSpeedTests.swift -o /tmp/TTSSpeedTests && /tmp/TTSSpeedTests",
     "test:ios-embeddings-planner": "swiftc ios/Sources/EmbeddingsBatchPlanner.swift ios/Tests/EmbeddingsBatchPlannerTests.swift -o /tmp/EmbeddingsBatchPlannerTests && /tmp/EmbeddingsBatchPlannerTests",
+    "test:ios-stt-audio": "swiftc ios/Sources/STTAudioContract.swift ios/Tests/STTAudioContractTests.swift -o /tmp/STTAudioContractTests && /tmp/STTAudioContractTests",
     "clean": "rm -rf android/build node_modules/**/android/build lib android/.cxx node_modules/**/android/.cxx",
     "release": "release-it",
     "specs": "bun typecheck && nitrogen --logLevel=\\\"debug\\\" && bun run build",
