@@ -39,18 +39,16 @@ enum STTAudioError: Error, LocalizedError, Equatable {
   }
 }
 
-/// Pure (Foundation-only) audio-contract rules for the STT bridge, mirrored by the
-/// TS-side guards in `runtime.ts`. Kept free of MLX imports so the rules run under
-/// plain `swiftc` unit tests off-device.
+/// Kept free of MLX imports so `swiftc` unit tests can run off-device.
+/// The TS-side guards in `runtime.ts` mirror these rules.
 struct STTAudioContract {
-  /// Qwen3ASR consumes 16 kHz mono Float32; mirrored in TS as `STT_SAMPLE_RATE`.
+  /// Qwen3ASR input rate; mirrored in TS as `STT_SAMPLE_RATE`.
   static let modelSampleRate: Double = 16000
   static let minSampleRate: Double = 8000
   static let maxSampleRate: Double = 48000
 
-  /// Magic-byte signatures of encoded containers callers commonly pass by mistake.
-  /// Only unambiguous ASCII magics are sniffed; MP3 frame sync (0xFF 0xEx) is skipped
-  /// because those bytes legitimately occur in raw Float32 sample data.
+  /// MP3 frame sync (0xFF 0xEx) is deliberately absent: those bytes occur in
+  /// legitimate raw Float32 sample data.
   private static let signatures: [(magic: [UInt8], offset: Int, format: String)] = [
     (Array("RIFF".utf8), 0, "WAV (RIFF)"),
     (Array("ID3".utf8), 0, "MP3 (ID3)"),
@@ -94,8 +92,8 @@ struct STTAudioContract {
     return requested
   }
 
-  /// Linear-interpolation resampling for mono PCM. Adequate for speech ASR input;
-  /// callers needing higher-fidelity SRC should resample upstream (e.g. AVFoundation).
+  /// Linear interpolation: adequate for speech input; higher-fidelity
+  /// resampling belongs upstream (e.g. AVFoundation).
   static func resample(_ samples: [Float], from source: Double, to target: Double) -> [Float] {
     guard source != target, !samples.isEmpty else {
       return samples

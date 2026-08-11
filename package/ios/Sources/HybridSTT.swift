@@ -22,9 +22,8 @@ class HybridSTT: HybridSTTSpec {
   var isListening: Bool { captureManager?.isCapturing ?? false }
   var modelId: String = ""
 
-  /// Validates the audio contract and copies the buffer into model-rate samples.
-  /// Runs synchronously: the JS ArrayBuffer is only guaranteed valid for the
-  /// duration of the bridge call, so the copy must not be deferred into a Task.
+  /// Must stay synchronous: the JS ArrayBuffer is only valid for the duration
+  /// of the bridge call, so the copy cannot be deferred into a Task.
   private func samplesFromArrayBuffer(
     _ buffer: ArrayBuffer,
     sampleRate: Double?

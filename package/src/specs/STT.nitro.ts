@@ -4,29 +4,21 @@ export interface STTLoadOptions {
   onProgress?: (progress: number) => void
 }
 
-/**
- * Audio contract for direct transcription. The buffer itself is always raw
- * native-endian mono Float32 PCM; these options make the remaining
- * characteristics explicit.
- */
+/** Options for transcribing raw native-endian mono Float32 PCM buffers. */
 export interface STTTranscribeOptions {
   /**
-   * Sample rate of the provided PCM in Hz. Defaults to 16000 (the model's
-   * input rate). Rates between 8000 and 48000 are resampled natively before
-   * inference; anything else is rejected.
+   * Sample rate of the PCM in Hz (default 16000). Rates within 8000–48000 are
+   * resampled natively before inference; others are rejected.
    */
   sampleRate?: number
-  /**
-   * Spoken language of the audio (e.g. `'English'`, `'Spanish'`). Omit to let
-   * the model auto-detect the language.
-   */
+  /** Spoken language (e.g. `'Spanish'`). Omit to auto-detect. */
   language?: string
 }
 
 export interface STTListeningOptions {
   /**
    * Spoken language applied to `transcribeBuffer`/`stopListening` results.
-   * Omit to let the model auto-detect the language.
+   * Omit to auto-detect.
    */
   language?: string
 }

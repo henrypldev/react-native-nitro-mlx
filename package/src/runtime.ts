@@ -149,9 +149,8 @@ export const STT_MIN_SAMPLE_RATE = 8000
 export const STT_MAX_SAMPLE_RATE = 48000
 
 /**
- * Magic-byte signatures of encoded audio containers commonly passed by mistake.
  * Mirrors `STTAudioContract.signatures` on the native side. MP3 frame sync
- * (0xFF 0xEx) is deliberately not sniffed — those bytes occur in raw Float32 data.
+ * (0xFF 0xEx) is deliberately absent — those bytes occur in raw Float32 data.
  */
 const STT_ENCODED_SIGNATURES: ReadonlyArray<{
   magic: string
