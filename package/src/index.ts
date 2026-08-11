@@ -64,7 +64,9 @@ export type {
 export type { ModelManager as ModelManagerSpec } from './specs/ModelManager.nitro'
 export type {
   STT as STTSpec,
+  STTListeningOptions,
   STTLoadOptions,
+  STTTranscribeOptions,
   STTTranscriptionInfo,
 } from './specs/STT.nitro'
 export type {

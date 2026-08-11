@@ -16,6 +16,10 @@ namespace MLXReactNative { class HybridSTTSpec_cxx; }
 namespace margelo::nitro::mlxreactnative { struct STTLoadOptions; }
 // Forward declaration of `ArrayBufferHolder` to properly resolve imports.
 namespace NitroModules { class ArrayBufferHolder; }
+// Forward declaration of `STTTranscribeOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTTranscribeOptions; }
+// Forward declaration of `STTListeningOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 
 #include <string>
 #include <NitroModules/Promise.hpp>
@@ -24,6 +28,8 @@ namespace NitroModules { class ArrayBufferHolder; }
 #include <functional>
 #include <NitroModules/ArrayBuffer.hpp>
 #include <NitroModules/ArrayBufferHolder.hpp>
+#include "STTTranscribeOptions.hpp"
+#include "STTListeningOptions.hpp"
 
 #include "MLXReactNative-Swift-Cxx-Umbrella.hpp"
 
@@ -95,24 +101,24 @@ namespace margelo::nitro::mlxreactnative {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> transcribe(const std::shared_ptr<ArrayBuffer>& audio) override {
-      auto __result = _swiftPart.transcribe(ArrayBufferHolder(audio));
+    inline std::shared_ptr<Promise<std::string>> transcribe(const std::shared_ptr<ArrayBuffer>& audio, const std::optional<STTTranscribeOptions>& options) override {
+      auto __result = _swiftPart.transcribe(ArrayBufferHolder(audio), options);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> transcribeStream(const std::shared_ptr<ArrayBuffer>& audio, const std::function<void(const std::string& /* token */)>& onToken) override {
-      auto __result = _swiftPart.transcribeStream(ArrayBufferHolder(audio), onToken);
+    inline std::shared_ptr<Promise<std::string>> transcribeStream(const std::shared_ptr<ArrayBuffer>& audio, const std::function<void(const std::string& /* token */)>& onToken, const std::optional<STTTranscribeOptions>& options) override {
+      auto __result = _swiftPart.transcribeStream(ArrayBufferHolder(audio), onToken, options);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<void>> startListening() override {
-      auto __result = _swiftPart.startListening();
+    inline std::shared_ptr<Promise<void>> startListening(const std::optional<STTListeningOptions>& options) override {
+      auto __result = _swiftPart.startListening(options);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

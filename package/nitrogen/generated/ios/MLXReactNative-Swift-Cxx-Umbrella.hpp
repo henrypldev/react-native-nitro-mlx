@@ -32,8 +32,12 @@ namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `STTListeningOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTLoadOptions; }
+// Forward declaration of `STTTranscribeOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTTranscribeOptions; }
 // Forward declaration of `StreamEventEnvelope` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
 // Forward declaration of `StreamEventKind` to properly resolve imports.
@@ -60,7 +64,9 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 #include "LLMGenerationConfig.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
+#include "STTTranscribeOptions.hpp"
 #include "StreamEventEnvelope.hpp"
 #include "StreamEventKind.hpp"
 #include "TTSGenerateOptions.hpp"

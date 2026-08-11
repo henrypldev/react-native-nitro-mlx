@@ -34,8 +34,12 @@ namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `STTListeningOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTLoadOptions; }
+// Forward declaration of `STTTranscribeOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct STTTranscribeOptions; }
 // Forward declaration of `StreamEventEnvelope` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
 // Forward declaration of `StreamEventKind` to properly resolve imports.
@@ -74,7 +78,9 @@ namespace MLXReactNative { class HybridTTSSpec_cxx; }
 #include "LLMGenerationConfig.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
+#include "STTTranscribeOptions.hpp"
 #include "StreamEventEnvelope.hpp"
 #include "StreamEventKind.hpp"
 #include "TTSGenerateOptions.hpp"
@@ -862,6 +868,36 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return optional.has_value();
   }
   inline STTLoadOptions get_std__optional_STTLoadOptions_(const std::optional<STTLoadOptions>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<STTTranscribeOptions>
+  /**
+   * Specialized version of `std::optional<STTTranscribeOptions>`.
+   */
+  using std__optional_STTTranscribeOptions_ = std::optional<STTTranscribeOptions>;
+  inline std::optional<STTTranscribeOptions> create_std__optional_STTTranscribeOptions_(const STTTranscribeOptions& value) noexcept {
+    return std::optional<STTTranscribeOptions>(value);
+  }
+  inline bool has_value_std__optional_STTTranscribeOptions_(const std::optional<STTTranscribeOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline STTTranscribeOptions get_std__optional_STTTranscribeOptions_(const std::optional<STTTranscribeOptions>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<STTListeningOptions>
+  /**
+   * Specialized version of `std::optional<STTListeningOptions>`.
+   */
+  using std__optional_STTListeningOptions_ = std::optional<STTListeningOptions>;
+  inline std::optional<STTListeningOptions> create_std__optional_STTListeningOptions_(const STTListeningOptions& value) noexcept {
+    return std::optional<STTListeningOptions>(value);
+  }
+  inline bool has_value_std__optional_STTListeningOptions_(const std::optional<STTListeningOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline STTListeningOptions get_std__optional_STTListeningOptions_(const std::optional<STTListeningOptions>& optional) noexcept {
     return optional.value();
   }
   

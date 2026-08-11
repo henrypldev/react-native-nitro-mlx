@@ -15,18 +15,33 @@ class HybridSTT: HybridSTTSpec {
   private var activeTask: Task<String, Error>?
   private var loadTask: Task<Void, Error>?
   private var captureManager: AudioCaptureManager?
+  private var listeningLanguage: String?
 
   var isLoaded: Bool { model != nil }
   var isTranscribing: Bool { activeTask != nil }
   var isListening: Bool { captureManager?.isCapturing ?? false }
   var modelId: String = ""
 
-  private func arrayBufferToMLXArray(_ buffer: ArrayBuffer) -> MLXArray {
-    let count = buffer.size / MemoryLayout<Float>.size
+  /// Must stay synchronous: the JS ArrayBuffer is only valid for the duration
+  /// of the bridge call, so the copy cannot be deferred into a Task.
+  private func samplesFromArrayBuffer(
+    _ buffer: ArrayBuffer,
+    sampleRate: Double?
+  ) throws -> [Float] {
+    let byteCount = buffer.size
     let rawPtr = UnsafeRawPointer(buffer.data)
+    let prefix = [UInt8](UnsafeRawBufferPointer(start: rawPtr, count: min(byteCount, 12)))
+    try STTAudioContract.validate(byteCount: byteCount, prefix: prefix)
+    let sourceRate = try STTAudioContract.resolveSampleRate(sampleRate)
+
+    let count = byteCount / MemoryLayout<Float>.size
     let floatPtr = rawPtr.bindMemory(to: Float.self, capacity: count)
-    let floatBuffer = UnsafeBufferPointer(start: floatPtr, count: count)
-    return MLXArray(Array(floatBuffer))
+    let samples = Array(UnsafeBufferPointer(start: floatPtr, count: count))
+    return STTAudioContract.resample(
+      samples,
+      from: sourceRate,
+      to: STTAudioContract.modelSampleRate
+    )
   }
 
   func load(modelId: String, options: STTLoadOptions?) throws -> Promise<Void> {
@@ -54,15 +69,17 @@ class HybridSTT: HybridSTTSpec {
     }
   }
 
-  func transcribe(audio: ArrayBuffer) throws -> Promise<String> {
+  func transcribe(audio: ArrayBuffer, options: STTTranscribeOptions?) throws -> Promise<String> {
     guard let model else {
       throw STTError.notLoaded
     }
 
+    let samples = try samplesFromArrayBuffer(audio, sampleRate: options?.sampleRate)
+    let language = options?.language
+
     return Promise.async { [self] in
       let task = Task<String, Error> {
-        let mlxAudio = self.arrayBufferToMLXArray(audio)
-        let output = model.generate(audio: mlxAudio, language: "English")
+        let output = model.generate(audio: MLXArray(samples), language: language)
         return output.text
       }
 
@@ -75,16 +92,19 @@ class HybridSTT: HybridSTTSpec {
 
   func transcribeStream(
     audio: ArrayBuffer,
-    onToken: @escaping (_ token: String) -> Void
+    onToken: @escaping (_ token: String) -> Void,
+    options: STTTranscribeOptions?
   ) throws -> Promise<String> {
     guard let model else {
       throw STTError.notLoaded
     }
 
+    let samples = try samplesFromArrayBuffer(audio, sampleRate: options?.sampleRate)
+    let language = options?.language
+
     return Promise.async { [self] in
       let task = Task<String, Error> {
-        let mlxAudio = self.arrayBufferToMLXArray(audio)
-        let stream = model.generateStream(audio: mlxAudio, language: "English")
+        let stream = model.generateStream(audio: MLXArray(samples), language: language)
         var finalText = ""
 
         for try await event in stream {
@@ -110,13 +130,15 @@ class HybridSTT: HybridSTTSpec {
     }
   }
 
-  func startListening() throws -> Promise<Void> {
+  func startListening(options: STTListeningOptions?) throws -> Promise<Void> {
     guard model != nil else {
       throw STTError.notLoaded
     }
     guard captureManager == nil || !captureManager!.isCapturing else {
       throw STTError.alreadyListening
     }
+
+    listeningLanguage = options?.language
 
     return Promise.async { [self] in
       let manager = AudioCaptureManager()
@@ -136,9 +158,10 @@ class HybridSTT: HybridSTTSpec {
       return Promise.resolved(withResult: "")
     }
 
+    let language = listeningLanguage
     return Promise.async { [self] in
       let task = Task<String, Error> {
-        let output = model.generate(audio: audio, language: "English")
+        let output = model.generate(audio: audio, language: language)
         return output.text
       }
 
@@ -161,10 +184,12 @@ class HybridSTT: HybridSTTSpec {
 
     let audio = manager.stopCapturing()
     self.captureManager = nil
+    let language = listeningLanguage
+    listeningLanguage = nil
 
     return Promise.async { [self] in
       let task = Task<String, Error> {
-        let output = model.generate(audio: audio, language: "English")
+        let output = model.generate(audio: audio, language: language)
         return output.text
       }
 
@@ -184,6 +209,7 @@ class HybridSTT: HybridSTTSpec {
       _ = manager.stopCapturing()
     }
     captureManager = nil
+    listeningLanguage = nil
   }
 
   func unload() throws {
@@ -195,6 +221,7 @@ class HybridSTT: HybridSTTSpec {
       _ = manager.stopCapturing()
     }
     captureManager = nil
+    listeningLanguage = nil
     model = nil
     modelId = ""
     Memory.clearCache()
