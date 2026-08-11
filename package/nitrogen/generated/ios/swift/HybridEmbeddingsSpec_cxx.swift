@@ -174,9 +174,9 @@ open class HybridEmbeddingsSpec_cxx {
   }
   
   @inline(__always)
-  public final func embed(text: std.string) -> bridge.Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____ {
+  public final func embed(text: std.string, options: bridge.std__optional_EmbeddingsEmbedOptions_) -> bridge.Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____ {
     do {
-      let __result = try self.__implementation.embed(text: String(text))
+      let __result = try self.__implementation.embed(text: String(text), options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer___ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer___()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer___(__promise)
@@ -193,9 +193,9 @@ open class HybridEmbeddingsSpec_cxx {
   }
   
   @inline(__always)
-  public final func embedBatch(texts: bridge.std__vector_std__string_) -> bridge.Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____ {
+  public final func embedBatch(texts: bridge.std__vector_std__string_, options: bridge.std__optional_EmbeddingsEmbedOptions_) -> bridge.Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____ {
     do {
-      let __result = try self.__implementation.embedBatch(texts: texts.map({ __item in String(__item) }))
+      let __result = try self.__implementation.embedBatch(texts: texts.map({ __item in String(__item) }), options: options.value)
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer____ in
         let __promise = bridge.create_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer____()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer____(__promise)

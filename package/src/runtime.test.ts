@@ -4,10 +4,13 @@ import {
   assertBoolean,
   assertNonEmptyString,
   createSafeCallback,
+  EMBEDDINGS_MAX_BATCH_SIZE,
   mapStreamEventEnvelope,
   safeJsonParse,
   TTS_MAX_SPEED,
   TTS_MIN_SPEED,
+  validateEmbeddingsBatch,
+  validateEmbeddingsEmbedOptions,
   validateLLMLoadOptions,
   validateTTSGenerateOptions,
 } from './runtime'
@@ -203,5 +206,49 @@ describe('stream event envelope mapping', () => {
         kind: 'not_a_kind',
       } as unknown as Parameters<typeof mapStreamEventEnvelope>[0]),
     ).toBeNull()
+  })
+})
+
+describe('embeddings guards', () => {
+  it('passes through valid embed options', () => {
+    expect(validateEmbeddingsEmbedOptions(undefined)).toBeUndefined()
+    expect(validateEmbeddingsEmbedOptions({ truncate: true })).toEqual({
+      truncate: true,
+    })
+    expect(validateEmbeddingsEmbedOptions({ truncate: false })).toEqual({
+      truncate: false,
+    })
+    expect(validateEmbeddingsEmbedOptions({})).toEqual({})
+  })
+
+  it('rejects a non-boolean truncate option', () => {
+    expect(() =>
+      validateEmbeddingsEmbedOptions({
+        truncate: 'yes',
+      } as unknown as Parameters<typeof validateEmbeddingsEmbedOptions>[0]),
+    ).toThrow('must be a boolean')
+  })
+
+  it('accepts a batch at the size limit', () => {
+    const texts = Array.from({ length: EMBEDDINGS_MAX_BATCH_SIZE }, (_, i) => `t${i}`)
+    expect(validateEmbeddingsBatch(texts)).toEqual(texts)
+  })
+
+  it('rejects a batch over the size limit', () => {
+    const texts = Array.from({ length: EMBEDDINGS_MAX_BATCH_SIZE + 1 }, (_, i) => `t${i}`)
+    expect(() => validateEmbeddingsBatch(texts)).toThrow(
+      `at most ${EMBEDDINGS_MAX_BATCH_SIZE}`,
+    )
+  })
+
+  it('rejects empty or non-array batches', () => {
+    expect(() => validateEmbeddingsBatch([])).toThrow('non-empty array')
+    expect(() => validateEmbeddingsBatch('hello' as unknown as string[])).toThrow(
+      'non-empty array',
+    )
+  })
+
+  it('rejects batches with empty items', () => {
+    expect(() => validateEmbeddingsBatch(['ok', '  '])).toThrow('texts[1]')
   })
 })

@@ -15,12 +15,15 @@
 
 // Forward declaration of `EmbeddingsLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct EmbeddingsLoadOptions; }
+// Forward declaration of `EmbeddingsEmbedOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct EmbeddingsEmbedOptions; }
 
 #include <NitroModules/Promise.hpp>
 #include <string>
 #include "EmbeddingsLoadOptions.hpp"
 #include <optional>
 #include <NitroModules/ArrayBuffer.hpp>
+#include "EmbeddingsEmbedOptions.hpp"
 #include <vector>
 
 namespace margelo::nitro::mlxreactnative {
@@ -58,8 +61,8 @@ namespace margelo::nitro::mlxreactnative {
       // Methods
       virtual std::shared_ptr<Promise<void>> load(const std::string& modelId, const std::optional<EmbeddingsLoadOptions>& options) = 0;
       virtual void unload() = 0;
-      virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> embed(const std::string& text) = 0;
-      virtual std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>> embedBatch(const std::vector<std::string>& texts) = 0;
+      virtual std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> embed(const std::string& text, const std::optional<EmbeddingsEmbedOptions>& options) = 0;
+      virtual std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>> embedBatch(const std::vector<std::string>& texts, const std::optional<EmbeddingsEmbedOptions>& options) = 0;
 
     protected:
       // Hybrid Setup

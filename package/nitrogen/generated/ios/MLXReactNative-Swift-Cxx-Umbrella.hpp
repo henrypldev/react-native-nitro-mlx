@@ -8,6 +8,8 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `EmbeddingsEmbedOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct EmbeddingsEmbedOptions; }
 // Forward declaration of `EmbeddingsLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct EmbeddingsLoadOptions; }
 // Forward declaration of `GenerationStats` to properly resolve imports.
@@ -46,6 +48,7 @@ namespace margelo::nitro::mlxreactnative { struct ToolDefinition; }
 namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 
 // Include C++ defined types
+#include "EmbeddingsEmbedOptions.hpp"
 #include "EmbeddingsLoadOptions.hpp"
 #include "GenerationStats.hpp"
 #include "HybridEmbeddingsSpec.hpp"

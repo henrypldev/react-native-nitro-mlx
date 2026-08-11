@@ -5,11 +5,6 @@ internal import MLXEmbedders
 internal import MLXLMCommon
 internal import Tokenizers
 
-enum EmbeddingsError: Error {
-  case notLoaded
-  case emptyInput
-}
-
 class HybridEmbeddings: HybridEmbeddingsSpec {
   private var container: EmbedderModelContainer?
   private var loadTask: Task<Void, Error>?
@@ -18,6 +13,7 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
 
   private var cachedDimension: Int = 0
   private var cachedMaxSeqLen: Int = 0
+  private var cachedPadTokenString: String?
 
   var isLoaded: Bool { container != nil }
   var dimension: Double { Double(cachedDimension) }
@@ -35,6 +31,16 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
       if let v = obj[key] as? NSNumber { return v.intValue }
     }
     return nil
+  }
+
+  private func readPadTokenString(at dir: URL) -> String? {
+    let url = dir.appendingPathComponent("tokenizer_config.json")
+    guard let data = try? Data(contentsOf: url),
+      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return nil
+    }
+    return EmbeddingsBatchPlanner.padTokenString(fromTokenizerConfig: obj)
   }
 
   private func floatsToArrayBuffer(_ floats: [Float]) -> ArrayBuffer {
@@ -61,6 +67,7 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
         container = nil
         cachedDimension = 0
         cachedMaxSeqLen = 0
+        cachedPadTokenString = nil
         MLX.Memory.clearCache()
 
         if !(await ModelDownloader.shared.isDownloaded(modelId: modelId)) {
@@ -84,6 +91,7 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
         cachedDimension = readConfigInt(at: modelDir, keys: ["hidden_size", "dim"]) ?? 0
         cachedMaxSeqLen =
           readConfigInt(at: modelDir, keys: ["max_position_embeddings"]) ?? 0
+        cachedPadTokenString = readPadTokenString(at: modelDir)
         options?.onProgress?(1.0)
       }
 
@@ -92,10 +100,12 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
     }
   }
 
-  private func computeEmbeddings(texts: [String]) async throws -> [[Float]] {
+  private func computeEmbeddings(texts: [String], truncate: Bool) async throws -> [[Float]] {
     guard let container else { throw EmbeddingsError.notLoaded }
+    let maxSeqLen = cachedMaxSeqLen
+    let padTokenString = cachedPadTokenString
 
-    return await container.perform { context in
+    return try await container.perform { context in
       let tokenizer = context.tokenizer
       let model = context.model
       let pooling = context.pooling
@@ -103,18 +113,23 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
       let inputs = texts.map {
         tokenizer.encode(text: $0, addSpecialTokens: true)
       }
-      // Pad to longest, min 16 for Apple Silicon alignment (matches MLXEmbedders README).
-      let maxLength = inputs.reduce(into: 16) { acc, elem in
-        acc = max(acc, elem.count)
-      }
+      let padToken = EmbeddingsBatchPlanner.resolvePadToken(
+        configured: padTokenString.flatMap { tokenizer.convertTokenToId($0) },
+        eos: tokenizer.eosTokenId
+      )
+      let plan = try EmbeddingsBatchPlanner.plan(
+        inputs: inputs,
+        maxSequenceLength: maxSeqLen,
+        padTokenId: padToken,
+        truncate: truncate
+      )
 
-      let padToken = tokenizer.eosTokenId ?? 0
-      let padded = stacked(
-        inputs.map { elem in
-          MLXArray(
-            elem + Array(repeating: padToken, count: maxLength - elem.count))
-        })
-      let mask = (padded .!= padToken)
+      let padded = stacked(plan.rows.map { MLXArray($0) })
+      // Mask by true token positions, not token values: genuine EOS (or
+      // pad-valued) content inside a row must stay visible to pooling.
+      let positions = MLXArray(Array(0..<plan.paddedLength))
+      let lengths = MLXArray(plan.lengths).reshaped([plan.lengths.count, 1])
+      let mask = positions .< lengths
       let tokenTypes = MLXArray.zeros(like: padded)
       let result = pooling(
         model(
@@ -130,13 +145,14 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
     }
   }
 
-  func embed(text: String) throws -> Promise<ArrayBuffer> {
+  func embed(text: String, options: EmbeddingsEmbedOptions?) throws -> Promise<ArrayBuffer> {
     guard container != nil else { throw EmbeddingsError.notLoaded }
     guard !text.isEmpty else { throw EmbeddingsError.emptyInput }
 
+    let truncate = options?.truncate ?? false
     return Promise.async { [self] in
       let task = Task<Any, Error> {
-        let vectors = try await computeEmbeddings(texts: [text])
+        let vectors = try await computeEmbeddings(texts: [text], truncate: truncate)
         guard let vec = vectors.first else { throw EmbeddingsError.emptyInput }
         return floatsToArrayBuffer(vec) as Any
       }
@@ -148,13 +164,14 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
     }
   }
 
-  func embedBatch(texts: [String]) throws -> Promise<[ArrayBuffer]> {
+  func embedBatch(texts: [String], options: EmbeddingsEmbedOptions?) throws -> Promise<[ArrayBuffer]> {
     guard container != nil else { throw EmbeddingsError.notLoaded }
     guard !texts.isEmpty else { throw EmbeddingsError.emptyInput }
 
+    let truncate = options?.truncate ?? false
     return Promise.async { [self] in
       let task = Task<Any, Error> {
-        let vectors = try await computeEmbeddings(texts: texts)
+        let vectors = try await computeEmbeddings(texts: texts, truncate: truncate)
         return vectors.map { floatsToArrayBuffer($0) } as Any
       }
 
@@ -173,6 +190,7 @@ class HybridEmbeddings: HybridEmbeddingsSpec {
     container = nil
     cachedDimension = 0
     cachedMaxSeqLen = 0
+    cachedPadTokenString = nil
     MLX.Memory.clearCache()
   }
 }

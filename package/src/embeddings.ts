@@ -1,6 +1,12 @@
 import { NitroModules } from 'react-native-nitro-modules'
-import { assertNonEmptyString, validateEmbeddingsLoadOptions } from './runtime'
+import {
+  assertNonEmptyString,
+  validateEmbeddingsBatch,
+  validateEmbeddingsEmbedOptions,
+  validateEmbeddingsLoadOptions,
+} from './runtime'
 import type {
+  EmbeddingsEmbedOptions,
   EmbeddingsLoadOptions,
   Embeddings as EmbeddingsSpec,
 } from './specs/Embeddings.nitro'
@@ -114,27 +120,30 @@ export const Embeddings = {
 
   /**
    * Embed a single text and return the vector as a `Float32Array`.
+   * Input longer than `maxSequenceLength` tokens is rejected unless
+   * `options.truncate` is true.
    */
-  async embed(text: string): Promise<Float32Array> {
+  async embed(text: string, options?: EmbeddingsEmbedOptions): Promise<Float32Array> {
     const buffer = await getInstance().embed(
       assertNonEmptyString(text, 'Embeddings text'),
+      validateEmbeddingsEmbedOptions(options),
     )
     return toFloat32(buffer)
   },
 
   /**
-   * Embed a batch of texts in a single padded forward pass.
+   * Embed a batch of texts in a single padded forward pass. Accepts at most 64
+   * texts per call; input longer than `maxSequenceLength` tokens is rejected
+   * unless `options.truncate` is true.
    */
-  async embedBatch(texts: string[]): Promise<Float32Array[]> {
-    if (!Array.isArray(texts) || texts.length === 0) {
-      throw new TypeError(
-        '[react-native-nitro-mlx] Embeddings.embedBatch requires a non-empty array.',
-      )
-    }
-    const validated = texts.map((t, i) =>
-      assertNonEmptyString(t, `Embeddings texts[${i}]`),
+  async embedBatch(
+    texts: string[],
+    options?: EmbeddingsEmbedOptions,
+  ): Promise<Float32Array[]> {
+    const buffers = await getInstance().embedBatch(
+      validateEmbeddingsBatch(texts),
+      validateEmbeddingsEmbedOptions(options),
     )
-    const buffers = await getInstance().embedBatch(validated)
     return buffers.map(toFloat32)
   },
 
@@ -143,11 +152,17 @@ export const Embeddings = {
    * this auto-prepends the canonical query prefix. For symmetric models (BGE,
    * MiniLM) this is identical to `embed()`.
    */
-  async embedQuery(text: string): Promise<Float32Array> {
+  async embedQuery(
+    text: string,
+    options?: EmbeddingsEmbedOptions,
+  ): Promise<Float32Array> {
     const validated = assertNonEmptyString(text, 'Embeddings text')
     const family = prefixFamily(loadedModelId)
     const prefixed = family ? family.query(validated) : validated
-    const buffer = await getInstance().embed(prefixed)
+    const buffer = await getInstance().embed(
+      prefixed,
+      validateEmbeddingsEmbedOptions(options),
+    )
     return toFloat32(buffer)
   },
 
@@ -156,11 +171,17 @@ export const Embeddings = {
    * (E5, Nomic) this auto-prepends the canonical document prefix. For
    * symmetric models (BGE, MiniLM) this is identical to `embed()`.
    */
-  async embedDocument(text: string): Promise<Float32Array> {
+  async embedDocument(
+    text: string,
+    options?: EmbeddingsEmbedOptions,
+  ): Promise<Float32Array> {
     const validated = assertNonEmptyString(text, 'Embeddings text')
     const family = prefixFamily(loadedModelId)
     const prefixed = family ? family.document(validated) : validated
-    const buffer = await getInstance().embed(prefixed)
+    const buffer = await getInstance().embed(
+      prefixed,
+      validateEmbeddingsEmbedOptions(options),
+    )
     return toFloat32(buffer)
   },
 
