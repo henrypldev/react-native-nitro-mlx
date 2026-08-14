@@ -101,7 +101,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-
+  
   @inline(__always)
   var additionalContext: [LLMMessage]? {
     return { () -> [LLMMessage]? in
@@ -113,7 +113,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-
+  
   @inline(__always)
   var manageHistory: Bool? {
     return { () -> Bool? in
@@ -125,7 +125,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-
+  
   @inline(__always)
   var tools: [ToolDefinition]? {
     return { () -> [ToolDefinition]? in
@@ -137,12 +137,12 @@ public extension LLMLoadOptions {
       }
     }()
   }
-
+  
   @inline(__always)
   var generationConfig: LLMGenerationConfig? {
     return self.__generationConfig.value
   }
-
+  
   @inline(__always)
   var tokenBatchSize: Double? {
     return { () -> Double? in
@@ -154,12 +154,12 @@ public extension LLMLoadOptions {
       }
     }()
   }
-
+  
   @inline(__always)
   var contextConfig: LLMContextConfig? {
     return self.__contextConfig.value
   }
-
+  
   @inline(__always)
   var toolExecution: LLMToolExecution? {
     return self.__toolExecution.value
