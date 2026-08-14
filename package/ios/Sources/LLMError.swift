@@ -25,7 +25,7 @@ public enum LLMError: Error, LocalizedError {
     }
 }
 
-/// Phases of a generation call, reported in `generation_error` events.
+/// Phases of a generation call, reported by failed generation outcomes.
 public enum GenerationStage: String {
     case prepare
     case generate

@@ -35,10 +35,8 @@ public extension StreamEventKind {
         self = .toolCallCompleted
       case "tool_call_failed":
         self = .toolCallFailed
-      case "generation_end":
-        self = .generationEnd
-      case "generation_error":
-        self = .generationError
+      case "generation_outcome":
+        self = .generationOutcome
       default:
         return nil
     }
@@ -67,10 +65,8 @@ public extension StreamEventKind {
         return "tool_call_completed"
       case .toolCallFailed:
         return "tool_call_failed"
-      case .generationEnd:
-        return "generation_end"
-      case .generationError:
-        return "generation_error"
+      case .generationOutcome:
+        return "generation_outcome"
     }
   }
 }

@@ -4,7 +4,9 @@ import type {
   GenerationStats,
   LLMContextConfig,
   LLMGenerationConfig,
+  LLMGenerationOutcome,
   LLMMessage,
+  LLMToolExecution,
   StreamEvent,
   ToolDefinition,
 } from './specs/LLM.nitro'
@@ -50,6 +52,7 @@ export interface AssistantChatMessage extends BaseChatMessageFields {
   thinking?: string
   toolCalls?: ChatToolCall[]
   stats?: GenerationStats
+  outcome?: LLMGenerationOutcome
   /** True while the message is still being streamed. */
   isStreaming?: boolean
   error?: string
@@ -109,6 +112,7 @@ export interface ChatSessionOptions {
   generationConfig?: LLMGenerationConfig
   contextConfig?: LLMContextConfig
   tokenBatchSize?: number
+  toolExecution?: LLMToolExecution
   /** Called on every state transition with the latest session snapshot. */
   onUpdate?: (state: ChatSessionState) => void
   /** Called when a new message is appended to history (user, assistant, or tool). */
@@ -233,6 +237,7 @@ export class ChatSession {
         generationConfig: this._options.generationConfig,
         contextConfig: this._options.contextConfig,
         tokenBatchSize: this._options.tokenBatchSize,
+        toolExecution: this._options.toolExecution,
       })
       this._isLoaded = true
       this._setState({ status: 'idle', isLoaded: true })
@@ -405,8 +410,16 @@ export class ChatSession {
     let thinkingBuffer = ''
 
     const emitToolCall = (toolCall: ChatToolCall) => {
-      options?.onToolCall?.(toolCall)
-      this._options.onToolCall?.(toolCall)
+      try {
+        options?.onToolCall?.(toolCall)
+      } catch {
+        // observers cannot affect turn execution
+      }
+      try {
+        this._options.onToolCall?.(toolCall)
+      } catch {
+        // observers cannot affect turn execution
+      }
     }
 
     const handleEvent = (event: StreamEvent): void => {
@@ -429,8 +442,16 @@ export class ChatSession {
         case 'token':
           assistantMessage.content += event.token
           this._setState({ partialAssistantContent: assistantMessage.content })
-          options?.onToken?.(event.token)
-          this._options.onToken?.(event.token)
+          try {
+            options?.onToken?.(event.token)
+          } catch {
+            // observers cannot affect turn execution
+          }
+          try {
+            this._options.onToken?.(event.token)
+          } catch {
+            // observers cannot affect turn execution
+          }
           break
         case 'tool_call_start': {
           const args = safeJsonParse<Record<string, unknown>>(event.arguments, {})
@@ -486,30 +507,43 @@ export class ChatSession {
           emitToolCall(toolCall)
           break
         }
-        case 'generation_end':
-          assistantMessage.content = event.content
-          assistantMessage.stats = event.stats
-          this._setState({ lastStats: event.stats })
-          break
-        case 'generation_error':
-          assistantMessage.stats = event.stats
-          this._setState({ lastStats: event.stats })
+        case 'generation_outcome':
+          assistantMessage.content = event.outcome.content
+          assistantMessage.thinking = event.outcome.thinking
+          assistantMessage.stats = event.outcome.stats
+          assistantMessage.outcome = event.outcome
+          assistantMessage.error = event.outcome.error
+          this._setState({ lastStats: event.outcome.stats })
           break
       }
     }
 
     try {
       // LLM.streamWithEvents wraps the event callback in its own safe-callback.
-      await LLM.streamWithEvents(content, handleEvent)
+      const outcome = await LLM.streamWithEvents(content, handleEvent)
+      assistantMessage.content = outcome.content
+      assistantMessage.thinking = outcome.thinking
+      assistantMessage.stats = outcome.stats
+      assistantMessage.outcome = outcome
+      assistantMessage.error = outcome.error
       assistantMessage.isStreaming = false
-      this._setState({
-        status: 'done',
-        isGenerating: false,
-        partialAssistantContent: '',
-        partialAssistantThinking: '',
-        activeToolCalls: [],
-      })
-      this._options.onMessage?.(assistantMessage)
+      this._setState({ lastStats: outcome.stats })
+      if (outcome.finishReason === 'failed') {
+        this._handleError(new Error(outcome.error ?? 'LLM generation failed.'))
+      } else {
+        this._setState({
+          status: 'done',
+          isGenerating: false,
+          partialAssistantContent: '',
+          partialAssistantThinking: '',
+          activeToolCalls: [],
+        })
+      }
+      try {
+        this._options.onMessage?.(assistantMessage)
+      } catch {
+        // observers cannot affect turn execution
+      }
       return assistantMessage
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
@@ -552,7 +586,11 @@ export class ChatSession {
       createdAt: Date.now(),
     }
     this._messages.push(toolMessage)
-    this._options.onMessage?.(toolMessage)
+    try {
+      this._options.onMessage?.(toolMessage)
+    } catch {
+      // observers cannot affect turn execution
+    }
   }
 
   private _createInitialState(): ChatSessionState {
@@ -610,7 +648,11 @@ export class ChatSession {
       partialAssistantThinking: '',
       activeToolCalls: [],
     })
-    this._options.onError?.(err)
+    try {
+      this._options.onError?.(err)
+    } catch {
+      // observers cannot affect session state
+    }
   }
 }
 

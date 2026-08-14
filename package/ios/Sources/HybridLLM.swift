@@ -105,7 +105,7 @@ class HybridLLM: HybridLLMSpec {
         }
     }
 
-    func generate(prompt: String) throws -> Promise<String> {
+    func generate(prompt: String) throws -> Promise<LLMGenerationOutcome> {
         Promise.async { [core] in
             try await core.generate(prompt: prompt)
         }
@@ -115,7 +115,7 @@ class HybridLLM: HybridLLMSpec {
         prompt: String,
         onToken: @escaping (String) -> Void,
         onToolCall: ((String, String) -> Void)?
-    ) throws -> Promise<String> {
+    ) throws -> Promise<LLMGenerationOutcome> {
         Promise.async { [core] in
             try await core.stream(prompt: prompt, onToken: onToken, onToolCall: onToolCall)
         }
@@ -124,7 +124,7 @@ class HybridLLM: HybridLLMSpec {
     func streamWithEvents(
         prompt: String,
         onEvent: @escaping (StreamEventEnvelope) -> Void
-    ) throws -> Promise<String> {
+    ) throws -> Promise<LLMGenerationOutcome> {
         Promise.async { [core] in
             try await core.streamWithEvents(prompt: prompt, onEvent: onEvent)
         }
@@ -136,10 +136,6 @@ class HybridLLM: HybridLLMSpec {
 
     func unload() throws {
         try MainActorSync.run { self.core.unload() }
-    }
-
-    func getLastGenerationStats() throws -> GenerationStats {
-        MainActorSync.read { self.core.getLastGenerationStats() }
     }
 
     func getHistory() throws -> [LLMMessage] {
@@ -181,10 +177,11 @@ private final class HybridLLMCore {
 
     private protocol GenerationSink: AnyObject {
         var firstTokenTime: Date? { get }
+        var thinkingContent: String { get }
         func ingest(chunk: String) -> String
         func flush()
         func finalizeStream() -> String
-        func registerToolCall(name: String, arguments: String) -> String
+        func registerToolCall(name: String, arguments: String, modelID: String?) -> String
         func willExecuteTool(id: String)
         func didCompleteTool(id: String, result: String)
         func didFailTool(id: String, error: String)
@@ -194,7 +191,9 @@ private final class HybridLLMCore {
     private final class StringGenerationSink: GenerationSink {
         private let batcher: TokenBatcher
         private let onToolCall: (String, String) -> Void
+        private var thinkingMachine = ThinkingStateMachine()
         private(set) var firstTokenTime: Date?
+        private(set) var thinkingContent = ""
 
         init(batcher: TokenBatcher, onToolCall: @escaping (String, String) -> Void) {
             self.batcher = batcher
@@ -202,22 +201,55 @@ private final class HybridLLMCore {
         }
 
         func ingest(chunk: String) -> String {
-            if !chunk.isEmpty && firstTokenTime == nil {
-                firstTokenTime = Date()
+            var result = ""
+            for output in thinkingMachine.process(token: chunk) {
+                switch output {
+                case .token(let token):
+                    if !token.isEmpty && firstTokenTime == nil {
+                        firstTokenTime = Date()
+                    }
+                    batcher.append(token)
+                    result += token
+                case .thinkingStart:
+                    batcher.flush()
+                case .thinkingChunk(let thinking):
+                    thinkingContent += thinking
+                case .thinkingEnd:
+                    break
+                }
             }
-            batcher.append(chunk)
-            return chunk
+            return result
         }
 
         func flush() {
             batcher.flush()
         }
 
-        func finalizeStream() -> String { "" }
+        func finalizeStream() -> String {
+            var result = ""
+            for output in thinkingMachine.flush() {
+                switch output {
+                case .token(let token):
+                    if !token.isEmpty && firstTokenTime == nil {
+                        firstTokenTime = Date()
+                    }
+                    batcher.append(token)
+                    result += token
+                case .thinkingStart:
+                    batcher.flush()
+                case .thinkingChunk(let thinking):
+                    thinkingContent += thinking
+                case .thinkingEnd:
+                    break
+                }
+            }
+            batcher.flush()
+            return result
+        }
 
-        func registerToolCall(name: String, arguments: String) -> String {
+        func registerToolCall(name: String, arguments: String, modelID: String?) -> String {
             onToolCall(name, arguments)
-            return UUID().uuidString
+            return modelID ?? UUID().uuidString
         }
 
         func willExecuteTool(id: String) {}
@@ -226,10 +258,6 @@ private final class HybridLLMCore {
 
         func willContinueAfterTools() {
             batcher.flush()
-            if firstTokenTime == nil {
-                firstTokenTime = Date()
-            }
-            batcher.append("\u{200B}")
         }
     }
 
@@ -238,6 +266,7 @@ private final class HybridLLMCore {
         private let batcher: TokenBatcher
         private var thinkingMachine = ThinkingStateMachine()
         private(set) var firstTokenTime: Date?
+        private(set) var thinkingContent = ""
 
         init(emitter: StreamEventEmitter, batcher: TokenBatcher) {
             self.emitter = emitter
@@ -265,8 +294,8 @@ private final class HybridLLMCore {
             return result
         }
 
-        func registerToolCall(name: String, arguments: String) -> String {
-            let id = UUID().uuidString
+        func registerToolCall(name: String, arguments: String, modelID: String?) -> String {
+            let id = modelID ?? UUID().uuidString
             emitter.emitToolCallStart(id: id, name: name, arguments: arguments)
             return id
         }
@@ -298,6 +327,7 @@ private final class HybridLLMCore {
                 emitter.emitThinkingStart()
             case .thinkingChunk(let chunk):
                 batcher.flush()
+                thinkingContent += chunk
                 emitter.emitThinkingChunk(chunk)
             case .thinkingEnd(let content):
                 batcher.flush()
@@ -305,13 +335,6 @@ private final class HybridLLMCore {
             }
             return ""
         }
-    }
-
-    private struct ManagedSessionResult {
-        let output: String
-        let generationTokenCount: Int
-        let generationTimeMs: Double
-        let firstTokenTime: Date?
     }
 
     private final class GenerationProgress {
@@ -336,26 +359,21 @@ private final class HybridLLMCore {
     }
 
     private var session: ChatSession?
-    private let generationTasks = GenerationTaskController()
+    private let generationTasks = GenerationTaskController<LLMGenerationOutcome>()
     private var container: ModelContainer?
-    private var lastStats: GenerationStats = GenerationStats(
-        tokenCount: 0,
-        tokensPerSecond: 0,
-        timeToFirstToken: 0,
-        totalTime: 0,
-        toolExecutionTime: 0
-    )
     private var modelFactory: any ModelFactory = LLMModelFactory.shared
     private let tokenizerLoader: any TokenizerLoader = LocalTokenizerLoader()
     private var manageHistory: Bool = false
     private var seedMessages: [LLMMessage] = []
     private var messageHistory: [LLMMessage] = []
+    private var structuredHistory: [Chat.Message] = []
     private var loadTask: Task<Void, Error>?
 
     private var tools: [ToolDefinition] = []
     private var toolSchemas: [ToolSpec] = []
     private var generationParameters: GenerateParameters = GenerateParameters()
     private var tokenBatchSize: Int = 4
+    private var toolExecution: LLMToolExecution = .parallel
     private var contextConfig: LLMContextConfig?
     private var acceptsGeneration = false
     private var pendingUnload = false
@@ -370,7 +388,7 @@ private final class HybridLLMCore {
     private let defaultKeepLastMessages = 4
 
     private var canUseManagedSession: Bool {
-        manageHistory && toolSchemas.isEmpty && container != nil
+        manageHistory && container != nil
     }
 
     private func log(_ message: String) {
@@ -534,7 +552,7 @@ private final class HybridLLMCore {
             return
         }
 
-        let history = chatMessages(from: combinedHistory(with: messageHistory))
+        let history = chatMessages(from: seedMessages) + structuredHistory
 
         if history.isEmpty {
             session = ChatSession(
@@ -621,6 +639,7 @@ private final class HybridLLMCore {
         let trimmedHistory = Array(originalHistory.dropFirst(removedCount))
 
         messageHistory = trimmedHistory
+        structuredHistory = Array(structuredHistory.dropFirst(removedCount))
         log(
             "Trimmed \(removedCount) message(s) from managed history to stay within \(maxContextTokens) prompt tokens after \(tokenizationPasses) tokenization pass(es)"
         )
@@ -633,40 +652,23 @@ private final class HybridLLMCore {
         }
     }
 
-    private func finalizeManagedHistory(_ history: [LLMMessage]) async throws {
+    private func finalizeManagedHistory(
+        _ history: [LLMMessage],
+        structured: [Chat.Message]
+    ) async throws {
         guard manageHistory else { return }
+        let previouslyCommittedHistory = messageHistory
+        let previouslyCommittedStructuredHistory = structuredHistory
         messageHistory = history
-        try await trimManagedHistoryIfNeeded()
-        if canUseManagedSession {
+        structuredHistory = structured
+        do {
+            try await trimManagedHistoryIfNeeded()
+        } catch {
+            messageHistory = previouslyCommittedHistory
+            structuredHistory = previouslyCommittedStructuredHistory
             rebuildManagedSession()
+            throw error
         }
-    }
-
-    private func buildChatMessages(
-        history: [LLMMessage],
-        prompt: String,
-        toolResults: [String]?,
-        depth: Int
-    ) -> [Chat.Message] {
-        var chat: [Chat.Message] = []
-
-        if !systemPrompt.isEmpty {
-            chat.append(.system(systemPrompt))
-        }
-
-        chat.append(contentsOf: chatMessages(from: combinedHistory(with: history)))
-
-        if depth == 0 {
-            chat.append(.user(prompt))
-        }
-
-        if let toolResults {
-            for result in toolResults {
-                chat.append(.tool(result))
-            }
-        }
-
-        return chat
     }
 
     private func makeStats(
@@ -714,59 +716,6 @@ private final class HybridLLMCore {
         return dictionaryToJson(resultDict)
     }
 
-    private func runManagedSession(
-        prompt: String,
-        batcher: TokenBatcher?,
-        progress: GenerationProgress? = nil
-    ) async throws -> ManagedSessionResult {
-        let session = try ensureManagedSession()
-
-        var output = ""
-        var firstTokenTime: Date?
-        var generationTokenCount = 0
-        var generationTimeMs: Double = 0
-
-        defer {
-            batcher?.flush()
-        }
-
-        for try await generation in session.streamDetails(to: prompt, images: [], videos: []) {
-            if Task.isCancelled { break }
-
-            switch generation {
-            case .chunk(let text):
-                if firstTokenTime == nil {
-                    firstTokenTime = Date()
-                }
-
-                output += text
-                batcher?.append(text)
-                progress?.recordContent(text, firstTokenTime: firstTokenTime)
-
-            case .info(let info):
-                generationTokenCount += info.generationTokenCount
-                generationTimeMs += info.generateTime * 1000
-                progress?.recordGenerationInfo(
-                    tokens: info.generationTokenCount,
-                    timeMs: info.generateTime * 1000
-                )
-                log(
-                    "Generation info: \(info.generationTokenCount) tokens, \(String(format: "%.1f", info.tokensPerSecond)) tokens/s"
-                )
-
-            case .toolCall:
-                break
-            }
-        }
-
-        return ManagedSessionResult(
-            output: output,
-            generationTokenCount: generationTokenCount,
-            generationTimeMs: generationTimeMs,
-            firstTokenTime: firstTokenTime
-        )
-    }
-
     private func resetModelState() {
         session = nil
         container = nil
@@ -774,9 +723,11 @@ private final class HybridLLMCore {
         toolSchemas = []
         seedMessages = []
         messageHistory = []
+        structuredHistory = []
         manageHistory = false
         generationParameters = GenerateParameters()
         tokenBatchSize = 4
+        toolExecution = .parallel
         contextConfig = nil
         modelId = ""
         Memory.clearCache()
@@ -808,7 +759,7 @@ private final class HybridLLMCore {
         pendingUnload = false
 
         let task = Task { @MainActor in
-            await generationTasks.cancelAndWait()
+            await generationTasks.cancelAndWait(reason: .superseded)
             try Task.checkCancellation()
             resetModelState()
 
@@ -848,6 +799,7 @@ private final class HybridLLMCore {
 
             generationParameters = buildGenerateParameters(from: options?.generationConfig)
             tokenBatchSize = normalizedInt(options?.tokenBatchSize, minimum: 1) ?? 4
+            toolExecution = options?.toolExecution ?? .parallel
             contextConfig = options?.contextConfig
 
             self.container = loadedContainer
@@ -855,6 +807,7 @@ private final class HybridLLMCore {
             manageHistory = options?.manageHistory ?? false
             seedMessages = options?.additionalContext ?? []
             messageHistory = []
+            structuredHistory = []
 
             if manageHistory {
                 log("History management enabled with \(seedMessages.count) seed messages")
@@ -868,503 +821,420 @@ private final class HybridLLMCore {
         try await task.value
     }
 
-    func generate(prompt: String) async throws -> String {
-        guard acceptsGeneration, let container else {
-            throw LLMError.notLoaded
-        }
-        try ensureNotGenerating()
-
-        let task = Task<String, Error> { @MainActor in
-                let startTime = Date()
-
-                if canUseManagedSession {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-
-                    let result = try await withStage(.generate) {
-                        try await self.runManagedSession(prompt: prompt, batcher: nil)
-                    }
-
-                    var updatedHistory = messageHistory
-                    updatedHistory.append(LLMMessage(role: "user", content: prompt))
-                    updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await withStage(.history) {
-                        try await self.finalizeManagedHistory(updatedHistory)
-                    }
-
-                    let stats = makeStats(
-                        startTime: startTime,
-                        firstTokenTime: result.firstTokenTime,
-                        generationTokenCount: result.generationTokenCount,
-                        generationTimeMs: result.generationTimeMs,
-                        toolExecutionTimeMs: 0
-                    )
-                    lastStats = stats
-                    return result.output
-                }
-
-                if manageHistory {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-                }
-
-                var history = messageHistory
-                var generationTokenCount = 0
-                var generationTimeMs: Double = 0
-                var toolExecutionTime: Double = 0
-                let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: { _ in })
-                let sink = StringGenerationSink(batcher: batcher, onToolCall: { _, _ in })
-
-                let result: String
-                do {
-                    result = try await performGeneration(
-                        container: container,
-                        history: &history,
-                        prompt: prompt,
-                        toolResults: nil,
-                        depth: 0,
-                        sink: sink,
-                        onGenerationInfo: { tokens, time in
-                            generationTokenCount += tokens
-                            generationTimeMs += time
-                        },
-                        toolExecutionTime: &toolExecutionTime
-                    )
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch let error as LLMError {
-                    throw error
-                } catch {
-                    throw LLMError.generationFailed(
-                        stage: GenerationStage.generate.rawValue,
-                        message: error.localizedDescription
-                    )
-                }
-
-                try await withStage(.history) {
-                    try await self.finalizeManagedHistory(history)
-                }
-
-                lastStats = makeStats(
-                    startTime: startTime,
-                    firstTokenTime: sink.firstTokenTime,
-                    generationTokenCount: generationTokenCount,
-                    generationTimeMs: generationTimeMs,
-                    toolExecutionTimeMs: toolExecutionTime
-                )
-
-                return result
-            }
-
-        let generationID = try generationTasks.begin(task)
-        defer { finishGeneration(id: generationID) }
-        return try await task.value
+    func generate(prompt: String) async throws -> LLMGenerationOutcome {
+        let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: { _ in })
+        return try await beginTurn(
+            prompt: prompt,
+            sink: StringGenerationSink(batcher: batcher, onToolCall: { _, _ in })
+        )
     }
 
     func stream(
         prompt: String,
         onToken: @escaping (String) -> Void,
         onToolCall: ((String, String) -> Void)?
-    ) async throws -> String {
-        guard acceptsGeneration, let container else {
-            throw LLMError.notLoaded
-        }
-        try ensureNotGenerating()
-
-        let task = Task<String, Error> { @MainActor in
-                let startTime = Date()
-                let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: onToken)
-
-                if canUseManagedSession {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-
-                    let result = try await withStage(.generate) {
-                        try await self.runManagedSession(prompt: prompt, batcher: batcher)
-                    }
-
-                    var updatedHistory = messageHistory
-                    updatedHistory.append(LLMMessage(role: "user", content: prompt))
-                    updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await withStage(.history) {
-                        try await self.finalizeManagedHistory(updatedHistory)
-                    }
-
-                    let stats = makeStats(
-                        startTime: startTime,
-                        firstTokenTime: result.firstTokenTime,
-                        generationTokenCount: result.generationTokenCount,
-                        generationTimeMs: result.generationTimeMs,
-                        toolExecutionTimeMs: 0
-                    )
-                    lastStats = stats
-                    return result.output
-                }
-
-                if manageHistory {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-                }
-
-                var history = messageHistory
-                var generationTokenCount = 0
-                var generationTimeMs: Double = 0
-                var toolExecutionTime: Double = 0
-                let sink = StringGenerationSink(
-                    batcher: batcher,
-                    onToolCall: onToolCall ?? { _, _ in }
-                )
-
-                let result: String
-                do {
-                    result = try await performGeneration(
-                        container: container,
-                        history: &history,
-                        prompt: prompt,
-                        toolResults: nil,
-                        depth: 0,
-                        sink: sink,
-                        onGenerationInfo: { tokens, time in
-                            generationTokenCount += tokens
-                            generationTimeMs += time
-                        },
-                        toolExecutionTime: &toolExecutionTime
-                    )
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch let error as LLMError {
-                    throw error
-                } catch {
-                    throw LLMError.generationFailed(
-                        stage: GenerationStage.generate.rawValue,
-                        message: error.localizedDescription
-                    )
-                }
-
-                batcher.flush()
-                try await withStage(.history) {
-                    try await self.finalizeManagedHistory(history)
-                }
-
-                let stats = makeStats(
-                    startTime: startTime,
-                    firstTokenTime: sink.firstTokenTime,
-                    generationTokenCount: generationTokenCount,
-                    generationTimeMs: generationTimeMs,
-                    toolExecutionTimeMs: toolExecutionTime
-                )
-                lastStats = stats
-
-                log(
-                    "Stream complete - \(generationTokenCount) tokens, \(String(format: "%.1f", stats.tokensPerSecond)) tokens/s"
-                )
-                return result
-            }
-
-        let generationID = try generationTasks.begin(task)
-        defer { finishGeneration(id: generationID) }
-        return try await task.value
+    ) async throws -> LLMGenerationOutcome {
+        let batcher = TokenBatcher(batchSize: tokenBatchSize, emit: onToken)
+        return try await beginTurn(
+            prompt: prompt,
+            sink: StringGenerationSink(
+                batcher: batcher,
+                onToolCall: onToolCall ?? { _, _ in }
+            )
+        )
     }
 
     func streamWithEvents(
         prompt: String,
         onEvent: @escaping (StreamEventEnvelope) -> Void
-    ) async throws -> String {
-        guard acceptsGeneration, let container else {
+    ) async throws -> LLMGenerationOutcome {
+        let emitter = StreamEventEmitter(callback: onEvent)
+        let batcher = TokenBatcher(batchSize: tokenBatchSize) { token in
+            emitter.emitToken(token)
+        }
+        let outcome = try await beginTurn(
+            prompt: prompt,
+            sink: EventGenerationSink(emitter: emitter, batcher: batcher),
+            onStarted: emitter.emitGenerationStart,
+            onFinished: emitter.emitGenerationOutcome
+        )
+        return outcome
+    }
+
+    private struct PendingToolCall {
+        let id: String
+        let modelID: String?
+        let modelCall: ToolCall
+        let tool: ToolDefinition?
+        let name: String
+        let args: [String: Any]
+    }
+
+    private struct ToolExecutionBatch {
+        let results: [String?]
+        let wasCancelled: Bool
+    }
+
+    private func beginTurn(
+        prompt: String,
+        sink: GenerationSink,
+        onStarted: (() -> Void)? = nil,
+        onFinished: ((LLMGenerationOutcome) -> Void)? = nil
+    ) async throws -> LLMGenerationOutcome {
+        guard acceptsGeneration, container != nil else {
             throw LLMError.notLoaded
         }
         try ensureNotGenerating()
 
-        let task = Task<String, Error> { @MainActor in
-            let startTime = Date()
-            let emitter = StreamEventEmitter(callback: onEvent)
-            emitter.emitGenerationStart()
-
-            let progress = GenerationProgress()
-            var toolExecutionTime: Double = 0
-
-            @MainActor func partialStats() -> GenerationStats {
-                makeStats(startTime: startTime, progress: progress)
-            }
-
-            do {
-                if canUseManagedSession {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-
-                    let batcher = TokenBatcher(batchSize: tokenBatchSize) { token in
-                        emitter.emitToken(token)
-                    }
-                    let result = try await withStage(.generate) {
-                        try await self.runManagedSession(
-                            prompt: prompt,
-                            batcher: batcher,
-                            progress: progress
-                        )
-                    }
-
-                    var updatedHistory = messageHistory
-                    updatedHistory.append(LLMMessage(role: "user", content: prompt))
-                    updatedHistory.append(LLMMessage(role: "assistant", content: result.output))
-                    try await withStage(.history) {
-                        try await self.finalizeManagedHistory(updatedHistory)
-                    }
-
-                    let stats = partialStats()
-                    lastStats = stats
-                    emitter.emitGenerationEnd(content: result.output, stats: stats)
-                    return result.output
-                }
-
-                if manageHistory {
-                    try await withStage(.prepare) {
-                        try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
-                    }
-                }
-
-                var history = messageHistory
-                let tokenBatcher = TokenBatcher(batchSize: tokenBatchSize) { token in
-                    emitter.emitToken(token)
-                }
-                let sink = EventGenerationSink(emitter: emitter, batcher: tokenBatcher)
-
-                let result: String
-                do {
-                    result = try await performGeneration(
-                        container: container,
-                        history: &history,
-                        prompt: prompt,
-                        toolResults: nil,
-                        depth: 0,
-                        sink: sink,
-                        onGenerationInfo: { _, _ in },
-                        toolExecutionTime: &toolExecutionTime,
-                        progress: progress
-                    )
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch let error as LLMError {
-                    throw error
-                } catch {
-                    throw LLMError.generationFailed(
-                        stage: GenerationStage.generate.rawValue,
-                        message: error.localizedDescription
-                    )
-                }
-                tokenBatcher.flush()
-                try await withStage(.history) {
-                    try await self.finalizeManagedHistory(history)
-                }
-
-                let stats = partialStats()
-                lastStats = stats
-                emitter.emitGenerationEnd(content: result, stats: stats)
-
-                log(
-                    "StreamWithEvents complete - \(progress.generationTokenCount) tokens, \(String(format: "%.1f", stats.tokensPerSecond)) tokens/s (tool execution: \(String(format: "%.0f", progress.toolExecutionTimeMs))ms)"
-                )
-                return result
-            } catch is CancellationError {
-                // stop() or a superseding load(): resolve with partial state.
-                let stats = partialStats()
-                lastStats = stats
-                emitter.emitGenerationEnd(content: progress.content, stats: stats)
-                return progress.content
-            } catch {
-                let stats = partialStats()
-                lastStats = stats
-                emitter.emitGenerationError(
-                    error: error.localizedDescription,
-                    stage: (error as? LLMError)?.failureStage
-                        ?? GenerationStage.generate.rawValue,
-                    stats: stats
-                )
-                throw error
-            }
+        let task = Task<LLMGenerationOutcome, Never> { @MainActor in
+            let outcome = await self.performTurn(prompt: prompt, sink: sink)
+            onFinished?(outcome)
+            return outcome
         }
-
         let generationID = try generationTasks.begin(task)
+        onStarted?()
         defer { finishGeneration(id: generationID) }
-        return try await task.value
+        return await task.value
     }
 
-    private func performGeneration(
-        container: ModelContainer,
-        history: inout [LLMMessage],
+    private func performTurn(
         prompt: String,
-        toolResults: [String]?,
-        depth: Int,
-        sink: GenerationSink,
-        onGenerationInfo: @escaping (Int, Double) -> Void,
-        toolExecutionTime: inout Double,
-        progress: GenerationProgress? = nil
-    ) async throws -> String {
-        if depth >= maxToolCallDepth {
-            log("Max tool call depth reached (\(maxToolCallDepth))")
-            return ""
+        sink: GenerationSink
+    ) async -> LLMGenerationOutcome {
+        let startTime = Date()
+        let progress = GenerationProgress()
+        var turnHistory = messageHistory
+        var turnStructuredHistory = structuredHistory
+        var currentPassContent = ""
+        var didAppendPrompt = false
+
+        func outcome(
+            _ finishReason: LLMGenerationFinishReason,
+            error: String? = nil,
+            stage: String? = nil
+        ) -> LLMGenerationOutcome {
+            LLMGenerationOutcome(
+                content: progress.content,
+                thinking: sink.thinkingContent.isEmpty ? nil : sink.thinkingContent,
+                stats: makeStats(startTime: startTime, progress: progress),
+                finishReason: finishReason,
+                error: error,
+                stage: stage
+            )
         }
 
-        var output = ""
-        var pendingToolCalls: [(id: String, tool: ToolDefinition, args: [String: Any])] = []
-        var didFinalizeStream = false
+        do {
+            if manageHistory {
+                try await withStage(.prepare) {
+                    try await self.trimManagedHistoryIfNeeded(upcomingPrompt: prompt)
+                }
+                turnHistory = messageHistory
+                turnStructuredHistory = structuredHistory
+            }
 
+            guard let turnSession = try makeTurnSession() else {
+                throw LLMError.notLoaded
+            }
+
+            var inputMessages: [Chat.Message] = [.user(prompt)]
+            turnHistory.append(LLMMessage(role: "user", content: prompt))
+            turnStructuredHistory.append(.user(prompt))
+            didAppendPrompt = true
+            var depth = 0
+
+            while true {
+                try Task.checkCancellation()
+                currentPassContent = ""
+                let pendingCalls = try await withStage(.generate) {
+                    try await self.runSessionPass(
+                        session: turnSession,
+                        inputMessages: inputMessages,
+                        sink: sink,
+                        progress: progress,
+                        passContent: &currentPassContent
+                    )
+                }
+
+                if pendingCalls.isEmpty {
+                    if !currentPassContent.isEmpty {
+                        turnHistory.append(
+                            LLMMessage(role: "assistant", content: currentPassContent)
+                        )
+                        turnStructuredHistory.append(.assistant(currentPassContent))
+                    }
+                    currentPassContent = ""
+                    break
+                }
+
+                guard depth < maxToolCallDepth else {
+                    throw LLMError.generationFailed(
+                        stage: GenerationStage.tool.rawValue,
+                        message: "Maximum tool continuation depth reached"
+                    )
+                }
+
+                let batch = await executeToolCalls(
+                    pendingCalls,
+                    sink: sink,
+                    progress: progress
+                )
+                let completedCalls = zip(pendingCalls, batch.results).compactMap { call, result in
+                    result == nil ? nil : call
+                }
+                if !currentPassContent.isEmpty || !completedCalls.isEmpty {
+                    turnHistory.append(
+                        LLMMessage(role: "assistant", content: currentPassContent)
+                    )
+                    turnStructuredHistory.append(
+                        .assistant(
+                            currentPassContent,
+                            toolCalls: completedCalls.isEmpty
+                                ? nil
+                                : completedCalls.map(\.modelCall)
+                        )
+                    )
+                    currentPassContent = ""
+                }
+                for (call, result) in zip(pendingCalls, batch.results) {
+                    guard let result else { continue }
+                    turnHistory.append(LLMMessage(role: "tool", content: result))
+                    turnStructuredHistory.append(.tool(result, id: call.modelID))
+                }
+                if batch.wasCancelled {
+                    throw CancellationError()
+                }
+
+                inputMessages = zip(pendingCalls, batch.results).compactMap { call, result in
+                    result.map { .tool($0, id: call.modelID) }
+                }
+                sink.willContinueAfterTools()
+                depth += 1
+            }
+
+            if manageHistory {
+                try await withStage(.history) {
+                    try await self.finalizeManagedHistory(
+                        turnHistory,
+                        structured: turnStructuredHistory
+                    )
+                }
+            }
+            return outcome(.completed)
+        } catch is CancellationError {
+            let reason = generationTasks.cancellationReason ?? .stopped
+            if !currentPassContent.isEmpty {
+                turnHistory.append(LLMMessage(role: "assistant", content: currentPassContent))
+                turnStructuredHistory.append(.assistant(currentPassContent))
+            }
+
+            switch reason {
+            case .stopped:
+                if manageHistory {
+                    if !didAppendPrompt {
+                        turnHistory.append(LLMMessage(role: "user", content: prompt))
+                        turnStructuredHistory.append(.user(prompt))
+                    }
+                    messageHistory = turnHistory
+                    structuredHistory = turnStructuredHistory
+                    rebuildManagedSession()
+                }
+                return outcome(.stopped)
+            case .superseded:
+                if manageHistory { rebuildManagedSession() }
+                return outcome(.superseded)
+            case .unloaded:
+                session = nil
+                return outcome(.unloaded)
+            }
+        } catch {
+            if manageHistory { rebuildManagedSession() }
+            return outcome(
+                .failed,
+                error: error.localizedDescription,
+                stage: (error as? LLMError)?.failureStage
+                    ?? GenerationStage.generate.rawValue
+            )
+        }
+    }
+
+    private func makeTurnSession() throws -> ChatSession? {
+        guard let container else { return nil }
+        if manageHistory {
+            return try ensureManagedSession()
+        }
+        return ChatSession(
+            container,
+            instructions: systemPrompt,
+            generateParameters: generationParameters,
+            tools: configuredToolSchemas()
+        )
+    }
+
+    private func runSessionPass(
+        session: ChatSession,
+        inputMessages: [Chat.Message],
+        sink: GenerationSink,
+        progress: GenerationProgress,
+        passContent: inout String
+    ) async throws -> [PendingToolCall] {
+        var pendingCalls: [PendingToolCall] = []
+        var didFinalize = false
         defer {
-            if !didFinalizeStream {
+            if !didFinalize {
                 let suffix = sink.finalizeStream()
-                progress?.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
+                passContent += suffix
+                progress.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
             }
         }
 
-        let chat = buildChatMessages(
-            history: history,
-            prompt: prompt,
-            toolResults: toolResults,
-            depth: depth
-        )
-        let userInput = UserInput(chat: chat, tools: configuredToolSchemas())
-        let lmInput = try await withStage(.prepare) {
-            try await container.prepare(input: userInput)
-        }
-        let parameters = generationParameters
-
-        let stream = try await container.generate(
-            input: lmInput,
-            parameters: parameters
-        )
-
-        for await generation in stream {
-            if Task.isCancelled { break }
-
+        for try await generation in session.streamDetails(to: inputMessages) {
+            try Task.checkCancellation()
             switch generation {
             case .chunk(let text):
                 let content = sink.ingest(chunk: text)
-                output += content
-                progress?.recordContent(content, firstTokenTime: sink.firstTokenTime)
-
+                passContent += content
+                progress.recordContent(content, firstTokenTime: sink.firstTokenTime)
             case .toolCall(let toolCall):
                 sink.flush()
-                log("Tool call detected: \(toolCall.function.name)")
-
-                guard let tool = tools.first(where: { $0.name == toolCall.function.name }) else {
-                    log("Unknown tool: \(toolCall.function.name)")
-                    continue
-                }
-
-                let argsDict = convertToolCallArguments(toolCall.function.arguments)
-                let argsJson = dictionaryToJson(argsDict)
-                let id = sink.registerToolCall(name: toolCall.function.name, arguments: argsJson)
-
-                pendingToolCalls.append((id: id, tool: tool, args: argsDict))
-
+                let name = toolCall.function.name
+                let args = convertToolCallArguments(toolCall.function.arguments)
+                let id = sink.registerToolCall(
+                    name: name,
+                    arguments: dictionaryToJson(args),
+                    modelID: toolCall.id
+                )
+                pendingCalls.append(
+                    PendingToolCall(
+                        id: id,
+                        modelID: toolCall.id,
+                        modelCall: toolCall,
+                        tool: tools.first(where: { $0.name == name }),
+                        name: name,
+                        args: args
+                    )
+                )
             case .info(let info):
                 sink.flush()
-                log(
-                    "Generation info: \(info.generationTokenCount) tokens, \(String(format: "%.1f", info.tokensPerSecond)) tokens/s"
-                )
-                let generationTime = info.tokensPerSecond > 0
-                    ? Double(info.generationTokenCount) / info.tokensPerSecond * 1000
-                    : 0
-                onGenerationInfo(info.generationTokenCount, generationTime)
-                progress?.recordGenerationInfo(
+                progress.recordGenerationInfo(
                     tokens: info.generationTokenCount,
-                    timeMs: generationTime
+                    timeMs: info.generateTime * 1000
                 )
             }
         }
 
         let suffix = sink.finalizeStream()
-        didFinalizeStream = true
-        output += suffix
-        progress?.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
+        didFinalize = true
+        passContent += suffix
+        progress.recordContent(suffix, firstTokenTime: sink.firstTokenTime)
+        try Task.checkCancellation()
+        return pendingCalls
+    }
 
-        if Task.isCancelled {
-            return output
-        }
+    private func executeToolCalls(
+        _ calls: [PendingToolCall],
+        sink: GenerationSink,
+        progress: GenerationProgress
+    ) async -> ToolExecutionBatch {
+        let startedAt = Date()
+        var results = Array<String?>(repeating: nil, count: calls.count)
 
-        if !pendingToolCalls.isEmpty {
-            log("Executing \(pendingToolCalls.count) tool call(s)")
-            let toolStartTime = Date()
-
-            for call in pendingToolCalls {
+        if toolExecution == .sequential {
+            for (index, call) in calls.enumerated() {
+                if Task.isCancelled { break }
+                sink.willExecuteTool(id: call.id)
+                guard let result = await executeToolUntilCancelled(call) else { break }
+                results[index] = serializedToolResult(result)
+                emitToolResult(result, call: call, sink: sink)
+            }
+        } else {
+            for call in calls {
                 sink.willExecuteTool(id: call.id)
             }
-
-            let allToolResults: [String] = await withTaskGroup(of: (Int, String).self) { group in
-                for (index, call) in pendingToolCalls.enumerated() {
-                    group.addTask { [self] in
-                        do {
-                            let resultJson = try await executeToolCall(
-                                tool: call.tool,
-                                argsDict: call.args
-                            )
-                            await log("Tool result for \(call.tool.name): \(resultJson.prefix(100))...")
-                            sink.didCompleteTool(id: call.id, result: resultJson)
-                            return (index, resultJson)
-                        } catch {
-                            await log("Tool execution error for \(call.tool.name): \(error)")
-                            sink.didFailTool(id: call.id, error: error.localizedDescription)
-                            return (index, "{\"error\": \"Tool execution failed\"}")
-                        }
-                    }
-                }
-
-                var results = Array(repeating: "", count: pendingToolCalls.count)
-                for await (index, result) in group {
-                    results[index] = result
-                }
-                return results
-            }
-
-            let elapsedToolTime = Date().timeIntervalSince(toolStartTime) * 1000
-            toolExecutionTime += elapsedToolTime
-            progress?.toolExecutionTimeMs += elapsedToolTime
-
-            if Task.isCancelled {
-                return output
-            }
-
-            if depth == 0 {
-                history.append(LLMMessage(role: "user", content: prompt))
-            }
-            if !output.isEmpty {
-                history.append(LLMMessage(role: "assistant", content: output))
-            }
-            for result in allToolResults {
-                history.append(LLMMessage(role: "tool", content: result))
-            }
-
-            sink.willContinueAfterTools()
-
-            let continuation = try await performGeneration(
-                container: container,
-                history: &history,
-                prompt: prompt,
-                toolResults: allToolResults,
-                depth: depth + 1,
-                sink: sink,
-                onGenerationInfo: onGenerationInfo,
-                toolExecutionTime: &toolExecutionTime,
-                progress: progress
+            let (completions, continuation) = AsyncStream.makeStream(
+                of: (Int, Result<String, Error>).self
             )
+            let tasks = calls.enumerated().map { index, call in
+                Task { @MainActor [self] in
+                    continuation.yield((index, await executeTool(call)))
+                }
+            }
 
-            return output + continuation
+            var completed = 0
+            await withTaskCancellationHandler {
+                for await (index, result) in completions {
+                    if Task.isCancelled { break }
+                    completed += 1
+                    results[index] = serializedToolResult(result)
+                    emitToolResult(result, call: calls[index], sink: sink)
+                    if completed == calls.count { break }
+                }
+            } onCancel: {
+                continuation.finish()
+            }
+            continuation.finish()
+            tasks.forEach { $0.cancel() }
         }
 
-        if manageHistory {
-            if depth == 0 {
-                history.append(LLMMessage(role: "user", content: prompt))
-            }
-            if !output.isEmpty {
-                history.append(LLMMessage(role: "assistant", content: output))
-            }
-        }
+        progress.toolExecutionTimeMs += Date().timeIntervalSince(startedAt) * 1000
+        return ToolExecutionBatch(results: results, wasCancelled: Task.isCancelled)
+    }
 
-        return output
+    private func executeToolUntilCancelled(
+        _ call: PendingToolCall
+    ) async -> Result<String, Error>? {
+        let (completions, continuation) = AsyncStream.makeStream(
+            of: Result<String, Error>.self
+        )
+        let task = Task { @MainActor [self] in
+            continuation.yield(await executeTool(call))
+            continuation.finish()
+        }
+        let result: Result<String, Error>? = await withTaskCancellationHandler {
+            var iterator = completions.makeAsyncIterator()
+            return await iterator.next()
+        } onCancel: {
+            continuation.finish()
+        }
+        task.cancel()
+        return result
+    }
+
+    private func executeTool(_ call: PendingToolCall) async -> Result<String, Error> {
+        guard let tool = call.tool else {
+            return .failure(
+                LLMError.generationFailed(
+                    stage: GenerationStage.tool.rawValue,
+                    message: "Unknown tool: \(call.name)"
+                )
+            )
+        }
+        do {
+            return .success(try await executeToolCall(tool: tool, argsDict: call.args))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func emitToolResult(
+        _ result: Result<String, Error>,
+        call: PendingToolCall,
+        sink: GenerationSink
+    ) {
+        switch result {
+        case .success(let value):
+            sink.didCompleteTool(id: call.id, result: value)
+        case .failure(let error):
+            sink.didFailTool(id: call.id, error: error.localizedDescription)
+        }
+    }
+
+    private func serializedToolResult(_ result: Result<String, Error>) -> String {
+        switch result {
+        case .success(let value):
+            return value
+        case .failure(let error):
+            return dictionaryToJson(["error": error.localizedDescription])
+        }
     }
 
     private func convertToolCallArguments(_ arguments: [String: JSONValue]) -> [String: Any] {
@@ -1409,7 +1279,7 @@ private final class HybridLLMCore {
     }
 
     func stop() {
-        generationTasks.cancel()
+        generationTasks.cancel(reason: .stopped)
     }
 
     func unload() {
@@ -1417,15 +1287,11 @@ private final class HybridLLMCore {
         loadTask = nil
         acceptsGeneration = false
         pendingUnload = true
-        generationTasks.cancel()
+        generationTasks.cancel(reason: .unloaded)
 
         if !generationTasks.isActive {
             completeUnload()
         }
-    }
-
-    func getLastGenerationStats() -> GenerationStats {
-        lastStats
     }
 
     func getHistory() -> [LLMMessage] {
@@ -1434,6 +1300,7 @@ private final class HybridLLMCore {
 
     func clearHistory() {
         messageHistory = []
+        structuredHistory = []
         rebuildManagedSession()
         log("Message history cleared")
     }

@@ -81,6 +81,18 @@ describe('runtime guards', () => {
     ).toThrow('tools must have unique names')
   })
 
+  it('validates LLM tool execution mode', () => {
+    expect(validateLLMLoadOptions({ toolExecution: 'parallel' })?.toolExecution).toBe(
+      'parallel',
+    )
+    expect(validateLLMLoadOptions({ toolExecution: 'sequential' })?.toolExecution).toBe(
+      'sequential',
+    )
+    expect(() => validateLLMLoadOptions({ toolExecution: 'other' } as never)).toThrow(
+      "must be 'parallel' or 'sequential'",
+    )
+  })
+
   it('rejects invalid TTS generation options', () => {
     expect(() => validateTTSGenerateOptions({ speed: TTS_MIN_SPEED - 0.01 })).toThrow(
       'must be between 0.5 and 2',
@@ -141,7 +153,7 @@ describe('stream event envelope mapping', () => {
     })
   })
 
-  it('carries stats through on generation_end', () => {
+  it('maps the normalized terminal outcome', () => {
     const stats = {
       tokenCount: 10,
       tokensPerSecond: 5,
@@ -149,61 +161,20 @@ describe('stream event envelope mapping', () => {
       totalTime: 2000,
       toolExecutionTime: 0,
     }
-    expect(
-      mapStreamEventEnvelope({ kind: 'generation_end', content: 'done', stats }),
-    ).toEqual({ type: 'generation_end', content: 'done', stats })
-  })
-
-  it('emits generation_end with zeroed stats rather than dropping it', () => {
-    expect(mapStreamEventEnvelope({ kind: 'generation_end', content: 'done' })).toEqual({
-      type: 'generation_end',
+    const outcome = {
       content: 'done',
-      stats: {
-        tokenCount: 0,
-        tokensPerSecond: 0,
-        timeToFirstToken: 0,
-        totalTime: 0,
-        toolExecutionTime: 0,
-      },
-    })
-  })
-
-  it('maps generation_error with error, stage, and partial stats', () => {
-    const stats = {
-      tokenCount: 12,
-      tokensPerSecond: 0,
-      timeToFirstToken: 0,
-      totalTime: 4200,
-      toolExecutionTime: 0,
-    }
-    expect(
-      mapStreamEventEnvelope({
-        kind: 'generation_error',
-        error: 'Generation failed during generate: boom',
-        stage: 'generate',
-        stats,
-      }),
-    ).toEqual({
-      type: 'generation_error',
-      error: 'Generation failed during generate: boom',
-      stage: 'generate',
+      thinking: 'work',
       stats,
+      finishReason: 'completed' as const,
+    }
+    expect(mapStreamEventEnvelope({ kind: 'generation_outcome', outcome })).toEqual({
+      type: 'generation_outcome',
+      outcome,
     })
   })
 
-  it('emits generation_error with empty fields rather than dropping it', () => {
-    expect(mapStreamEventEnvelope({ kind: 'generation_error' })).toEqual({
-      type: 'generation_error',
-      error: '',
-      stage: '',
-      stats: {
-        tokenCount: 0,
-        tokensPerSecond: 0,
-        timeToFirstToken: 0,
-        totalTime: 0,
-        toolExecutionTime: 0,
-      },
-    })
+  it('drops a malformed terminal envelope', () => {
+    expect(mapStreamEventEnvelope({ kind: 'generation_outcome' })).toBeNull()
   })
 
   it('returns null for an unrecognized kind', () => {

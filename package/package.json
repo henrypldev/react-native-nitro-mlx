@@ -14,6 +14,7 @@
     "test:ios-history-trim": "swiftc ios/Sources/ManagedHistoryTrimPlanner.swift ios/Tests/ManagedHistoryTrimPlannerSpyTests.swift -o /tmp/ManagedHistoryTrimPlannerSpyTests && /tmp/ManagedHistoryTrimPlannerSpyTests",
     "test:ios-llm-error": "swiftc ios/Sources/LLMError.swift ios/Tests/LLMErrorTests.swift -o /tmp/LLMErrorTests && /tmp/LLMErrorTests",
     "test:ios-generation-task": "swiftc ios/Sources/LLMError.swift ios/Sources/GenerationTaskController.swift ios/Tests/GenerationTaskControllerTests.swift -o /tmp/GenerationTaskControllerTests && /tmp/GenerationTaskControllerTests",
+    "test:ios-thinking": "swiftc ios/Sources/ThinkingStateMachine.swift ios/Tests/ThinkingStateMachineTests.swift -o /tmp/ThinkingStateMachineTests && /tmp/ThinkingStateMachineTests",
     "test:ios-tts-speed": "swiftc ios/Sources/TTSSpeed.swift ios/Tests/TTSSpeedTests.swift -o /tmp/TTSSpeedTests && /tmp/TTSSpeedTests",
     "test:ios-embeddings-planner": "swiftc ios/Sources/EmbeddingsBatchPlanner.swift ios/Tests/EmbeddingsBatchPlannerTests.swift -o /tmp/EmbeddingsBatchPlannerTests && /tmp/EmbeddingsBatchPlannerTests",
     "test:ios-stt-audio": "swiftc ios/Sources/STTAudioContract.swift ios/Tests/STTAudioContractTests.swift -o /tmp/STTAudioContractTests && /tmp/STTAudioContractTests",

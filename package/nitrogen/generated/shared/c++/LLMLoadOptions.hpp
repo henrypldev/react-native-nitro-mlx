@@ -36,6 +36,8 @@ namespace margelo::nitro::mlxreactnative { struct ToolDefinition; }
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
 // Forward declaration of `LLMContextConfig` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
+// Forward declaration of `LLMToolExecution` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
 
 #include <functional>
 #include <optional>
@@ -44,6 +46,7 @@ namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
 #include "ToolDefinition.hpp"
 #include "LLMGenerationConfig.hpp"
 #include "LLMContextConfig.hpp"
+#include "LLMToolExecution.hpp"
 
 namespace margelo::nitro::mlxreactnative {
 
@@ -59,10 +62,11 @@ namespace margelo::nitro::mlxreactnative {
     std::optional<LLMGenerationConfig> generationConfig     SWIFT_PRIVATE;
     std::optional<double> tokenBatchSize     SWIFT_PRIVATE;
     std::optional<LLMContextConfig> contextConfig     SWIFT_PRIVATE;
+    std::optional<LLMToolExecution> toolExecution     SWIFT_PRIVATE;
 
   public:
     LLMLoadOptions() = default;
-    explicit LLMLoadOptions(std::optional<std::function<void(double /* progress */)>> onProgress, std::optional<std::vector<LLMMessage>> additionalContext, std::optional<bool> manageHistory, std::optional<std::vector<ToolDefinition>> tools, std::optional<LLMGenerationConfig> generationConfig, std::optional<double> tokenBatchSize, std::optional<LLMContextConfig> contextConfig): onProgress(onProgress), additionalContext(additionalContext), manageHistory(manageHistory), tools(tools), generationConfig(generationConfig), tokenBatchSize(tokenBatchSize), contextConfig(contextConfig) {}
+    explicit LLMLoadOptions(std::optional<std::function<void(double /* progress */)>> onProgress, std::optional<std::vector<LLMMessage>> additionalContext, std::optional<bool> manageHistory, std::optional<std::vector<ToolDefinition>> tools, std::optional<LLMGenerationConfig> generationConfig, std::optional<double> tokenBatchSize, std::optional<LLMContextConfig> contextConfig, std::optional<LLMToolExecution> toolExecution): onProgress(onProgress), additionalContext(additionalContext), manageHistory(manageHistory), tools(tools), generationConfig(generationConfig), tokenBatchSize(tokenBatchSize), contextConfig(contextConfig), toolExecution(toolExecution) {}
 
   public:
     // LLMLoadOptions is not equatable because these properties are not equatable: onProgress, tools
@@ -84,7 +88,8 @@ namespace margelo::nitro {
         JSIConverter<std::optional<std::vector<margelo::nitro::mlxreactnative::ToolDefinition>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tools"))),
         JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationConfig>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "generationConfig"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tokenBatchSize"))),
-        JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMContextConfig>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "contextConfig")))
+        JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMContextConfig>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "contextConfig"))),
+        JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMToolExecution>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "toolExecution")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mlxreactnative::LLMLoadOptions& arg) {
@@ -96,6 +101,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "generationConfig"), JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationConfig>>::toJSI(runtime, arg.generationConfig));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "tokenBatchSize"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.tokenBatchSize));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "contextConfig"), JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMContextConfig>>::toJSI(runtime, arg.contextConfig));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "toolExecution"), JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMToolExecution>>::toJSI(runtime, arg.toolExecution));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -113,6 +119,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationConfig>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "generationConfig")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tokenBatchSize")))) return false;
       if (!JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMContextConfig>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "contextConfig")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMToolExecution>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "toolExecution")))) return false;
       return true;
     }
   };

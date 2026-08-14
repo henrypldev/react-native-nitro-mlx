@@ -3,7 +3,6 @@ import type {
   EmbeddingsLoadOptions,
 } from './specs/Embeddings.nitro'
 import type {
-  GenerationStats,
   LLMLoadOptions,
   StreamEvent,
   StreamEventEnvelope,
@@ -123,6 +122,16 @@ export function validateLLMLoadOptions(
   const validated = validateLoadOptions(options, 'LLM')
   if (!validated) {
     return undefined
+  }
+
+  if (
+    validated.toolExecution !== undefined &&
+    validated.toolExecution !== 'parallel' &&
+    validated.toolExecution !== 'sequential'
+  ) {
+    throw new TypeError(
+      `${ERROR_PREFIX} LLM toolExecution must be 'parallel' or 'sequential'.`,
+    )
   }
 
   return {
@@ -311,21 +320,13 @@ export function validateTTSGenerateOptions(
   }
 }
 
-const EMPTY_STATS: GenerationStats = {
-  tokenCount: 0,
-  tokensPerSecond: 0,
-  timeToFirstToken: 0,
-  totalTime: 0,
-  toolExecutionTime: 0,
-}
-
 /**
  * Expand the flat `StreamEventEnvelope` that crosses the bridge back into the
  * discriminated `StreamEvent` union that consumers switch on.
  *
  * The native side always populates the fields its `kind` implies, so the `??` fallbacks
- * are defensive only. `generation_end` falls back to zeroed stats rather than being
- * dropped, because swallowing the terminal event would strand UI state mid-generation.
+ * are defensive only. A malformed terminal envelope is dropped because manufacturing
+ * an outcome would hide a native transport defect.
  */
 export function mapStreamEventEnvelope(
   envelope: StreamEventEnvelope,
@@ -366,19 +367,10 @@ export function mapStreamEventEnvelope(
         id: envelope.id ?? '',
         error: envelope.error ?? '',
       }
-    case 'generation_end':
-      return {
-        type: 'generation_end',
-        content: envelope.content ?? '',
-        stats: envelope.stats ?? EMPTY_STATS,
-      }
-    case 'generation_error':
-      return {
-        type: 'generation_error',
-        error: envelope.error ?? '',
-        stage: envelope.stage ?? '',
-        stats: envelope.stats ?? EMPTY_STATS,
-      }
+    case 'generation_outcome':
+      return envelope.outcome
+        ? { type: 'generation_outcome', outcome: envelope.outcome }
+        : null
     default:
       return null
   }

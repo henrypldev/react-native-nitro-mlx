@@ -18,7 +18,7 @@ public extension LLMLoadOptions {
   /**
    * Create a new instance of `LLMLoadOptions`.
    */
-  init(onProgress: ((_ progress: Double) -> Void)?, additionalContext: [LLMMessage]?, manageHistory: Bool?, tools: [ToolDefinition]?, generationConfig: LLMGenerationConfig?, tokenBatchSize: Double?, contextConfig: LLMContextConfig?) {
+  init(onProgress: ((_ progress: Double) -> Void)?, additionalContext: [LLMMessage]?, manageHistory: Bool?, tools: [ToolDefinition]?, generationConfig: LLMGenerationConfig?, tokenBatchSize: Double?, contextConfig: LLMContextConfig?, toolExecution: LLMToolExecution?) {
     self.init({ () -> bridge.std__optional_std__function_void_double____progress______ in
       if let __unwrappedValue = onProgress {
         return bridge.create_std__optional_std__function_void_double____progress______({ () -> bridge.Func_void_double in
@@ -76,6 +76,12 @@ public extension LLMLoadOptions {
       } else {
         return .init()
       }
+    }(), { () -> bridge.std__optional_LLMToolExecution_ in
+      if let __unwrappedValue = toolExecution {
+        return bridge.create_std__optional_LLMToolExecution_(__unwrappedValue)
+      } else {
+        return .init()
+      }
     }())
   }
 
@@ -95,7 +101,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-  
+
   @inline(__always)
   var additionalContext: [LLMMessage]? {
     return { () -> [LLMMessage]? in
@@ -107,7 +113,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-  
+
   @inline(__always)
   var manageHistory: Bool? {
     return { () -> Bool? in
@@ -119,7 +125,7 @@ public extension LLMLoadOptions {
       }
     }()
   }
-  
+
   @inline(__always)
   var tools: [ToolDefinition]? {
     return { () -> [ToolDefinition]? in
@@ -131,12 +137,12 @@ public extension LLMLoadOptions {
       }
     }()
   }
-  
+
   @inline(__always)
   var generationConfig: LLMGenerationConfig? {
     return self.__generationConfig.value
   }
-  
+
   @inline(__always)
   var tokenBatchSize: Double? {
     return { () -> Double? in
@@ -148,9 +154,14 @@ public extension LLMLoadOptions {
       }
     }()
   }
-  
+
   @inline(__always)
   var contextConfig: LLMContextConfig? {
     return self.__contextConfig.value
+  }
+
+  @inline(__always)
+  var toolExecution: LLMToolExecution? {
+    return self.__toolExecution.value
   }
 }

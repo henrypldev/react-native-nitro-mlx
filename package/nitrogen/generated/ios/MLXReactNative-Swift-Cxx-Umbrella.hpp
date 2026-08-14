@@ -28,10 +28,16 @@ namespace margelo::nitro::mlxreactnative { class HybridTTSSpec; }
 namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
 // Forward declaration of `LLMGenerationConfig` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
+// Forward declaration of `LLMGenerationFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMGenerationFinishReason; }
+// Forward declaration of `LLMGenerationOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 // Forward declaration of `LLMLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `LLMToolExecution` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
 // Forward declaration of `STTListeningOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
@@ -62,8 +68,11 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 #include "HybridTTSSpec.hpp"
 #include "LLMContextConfig.hpp"
 #include "LLMGenerationConfig.hpp"
+#include "LLMGenerationFinishReason.hpp"
+#include "LLMGenerationOutcome.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "LLMToolExecution.hpp"
 #include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
 #include "STTTranscribeOptions.hpp"

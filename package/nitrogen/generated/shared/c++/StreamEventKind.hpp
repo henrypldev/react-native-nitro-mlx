@@ -38,8 +38,7 @@ namespace margelo::nitro::mlxreactnative {
     TOOL_CALL_EXECUTING      SWIFT_NAME(toolCallExecuting) = 6,
     TOOL_CALL_COMPLETED      SWIFT_NAME(toolCallCompleted) = 7,
     TOOL_CALL_FAILED      SWIFT_NAME(toolCallFailed) = 8,
-    GENERATION_END      SWIFT_NAME(generationEnd) = 9,
-    GENERATION_ERROR      SWIFT_NAME(generationError) = 10,
+    GENERATION_OUTCOME      SWIFT_NAME(generationOutcome) = 9,
   } CLOSED_ENUM;
 
 } // namespace margelo::nitro::mlxreactnative
@@ -61,8 +60,7 @@ namespace margelo::nitro {
         case hashString("tool_call_executing"): return margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_EXECUTING;
         case hashString("tool_call_completed"): return margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_COMPLETED;
         case hashString("tool_call_failed"): return margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_FAILED;
-        case hashString("generation_end"): return margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_END;
-        case hashString("generation_error"): return margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_ERROR;
+        case hashString("generation_outcome"): return margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_OUTCOME;
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert \"" + unionValue + "\" to enum StreamEventKind - invalid value!");
       }
@@ -78,8 +76,7 @@ namespace margelo::nitro {
         case margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_EXECUTING: return JSIConverter<std::string>::toJSI(runtime, "tool_call_executing");
         case margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_COMPLETED: return JSIConverter<std::string>::toJSI(runtime, "tool_call_completed");
         case margelo::nitro::mlxreactnative::StreamEventKind::TOOL_CALL_FAILED: return JSIConverter<std::string>::toJSI(runtime, "tool_call_failed");
-        case margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_END: return JSIConverter<std::string>::toJSI(runtime, "generation_end");
-        case margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_ERROR: return JSIConverter<std::string>::toJSI(runtime, "generation_error");
+        case margelo::nitro::mlxreactnative::StreamEventKind::GENERATION_OUTCOME: return JSIConverter<std::string>::toJSI(runtime, "generation_outcome");
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert StreamEventKind to JS - invalid value: "
                                     + std::to_string(static_cast<int>(arg)) + "!");
@@ -100,8 +97,7 @@ namespace margelo::nitro {
         case hashString("tool_call_executing"):
         case hashString("tool_call_completed"):
         case hashString("tool_call_failed"):
-        case hashString("generation_end"):
-        case hashString("generation_error"):
+        case hashString("generation_outcome"):
           return true;
         default:
           return false;

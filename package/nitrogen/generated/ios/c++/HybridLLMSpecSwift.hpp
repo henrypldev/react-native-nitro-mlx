@@ -24,12 +24,18 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
 // Forward declaration of `LLMContextConfig` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
+// Forward declaration of `LLMToolExecution` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
+// Forward declaration of `LLMGenerationOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
+// Forward declaration of `GenerationStats` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
+// Forward declaration of `LLMGenerationFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMGenerationFinishReason; }
 // Forward declaration of `StreamEventEnvelope` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
 // Forward declaration of `StreamEventKind` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
-// Forward declaration of `GenerationStats` to properly resolve imports.
-namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
 
 #include <string>
 #include <NitroModules/Promise.hpp>
@@ -43,9 +49,12 @@ namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
 #include <NitroModules/AnyMap.hpp>
 #include "LLMGenerationConfig.hpp"
 #include "LLMContextConfig.hpp"
+#include "LLMToolExecution.hpp"
+#include "LLMGenerationOutcome.hpp"
+#include "GenerationStats.hpp"
+#include "LLMGenerationFinishReason.hpp"
 #include "StreamEventEnvelope.hpp"
 #include "StreamEventKind.hpp"
-#include "GenerationStats.hpp"
 
 #include "MLXReactNative-Swift-Cxx-Umbrella.hpp"
 
@@ -127,7 +136,7 @@ namespace margelo::nitro::mlxreactnative {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> generate(const std::string& prompt) override {
+    inline std::shared_ptr<Promise<LLMGenerationOutcome>> generate(const std::string& prompt) override {
       auto __result = _swiftPart.generate(prompt);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
@@ -135,7 +144,7 @@ namespace margelo::nitro::mlxreactnative {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> stream(const std::string& prompt, const std::function<void(const std::string& /* token */)>& onToken, const std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>& onToolCall) override {
+    inline std::shared_ptr<Promise<LLMGenerationOutcome>> stream(const std::string& prompt, const std::function<void(const std::string& /* token */)>& onToken, const std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>& onToolCall) override {
       auto __result = _swiftPart.stream(prompt, onToken, onToolCall);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
@@ -143,7 +152,7 @@ namespace margelo::nitro::mlxreactnative {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<std::string>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) override {
+    inline std::shared_ptr<Promise<LLMGenerationOutcome>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) override {
       auto __result = _swiftPart.streamWithEvents(prompt, onEvent);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
@@ -162,14 +171,6 @@ namespace margelo::nitro::mlxreactnative {
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
-    }
-    inline GenerationStats getLastGenerationStats() override {
-      auto __result = _swiftPart.getLastGenerationStats();
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-      auto __value = std::move(__result.value());
-      return __value;
     }
     inline std::vector<LLMMessage> getHistory() override {
       auto __result = _swiftPart.getHistory();

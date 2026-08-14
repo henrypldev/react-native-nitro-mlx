@@ -25,7 +25,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call();
     };
   }
-  
+
   // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
   Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
@@ -33,7 +33,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(error);
     };
   }
-  
+
   // pragma MARK: std::function<void(double /* progress */)>
   Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_double::fromUnsafe(swiftClosureWrapper);
@@ -41,7 +41,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(progress);
     };
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<ArrayBuffer>& /* result */)>
   Func_void_std__shared_ptr_ArrayBuffer_ create_Func_void_std__shared_ptr_ArrayBuffer_(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__shared_ptr_ArrayBuffer_::fromUnsafe(swiftClosureWrapper);
@@ -49,7 +49,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(ArrayBufferHolder(result));
     };
   }
-  
+
   // pragma MARK: std::function<void(const std::vector<std::shared_ptr<ArrayBuffer>>& /* result */)>
   Func_void_std__vector_std__shared_ptr_ArrayBuffer__ create_Func_void_std__vector_std__shared_ptr_ArrayBuffer__(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__vector_std__shared_ptr_ArrayBuffer__::fromUnsafe(swiftClosureWrapper);
@@ -57,7 +57,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(result);
     };
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridEmbeddingsSpec>
   std::shared_ptr<HybridEmbeddingsSpec> create_std__shared_ptr_HybridEmbeddingsSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridEmbeddingsSpec_cxx swiftPart = MLXReactNative::HybridEmbeddingsSpec_cxx::fromUnsafe(swiftUnsafePointer);
@@ -73,7 +73,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     MLXReactNative::HybridEmbeddingsSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<AnyMap>& /* result */)>
   Func_void_std__shared_ptr_AnyMap_ create_Func_void_std__shared_ptr_AnyMap_(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__shared_ptr_AnyMap_::fromUnsafe(swiftClosureWrapper);
@@ -81,7 +81,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(result);
     };
   }
-  
+
   // pragma MARK: std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>>(const std::shared_ptr<AnyMap>& /* args */)>
   Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap_ create_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap_(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap_::fromUnsafe(swiftClosureWrapper);
@@ -90,7 +90,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       return __result;
     };
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>& /* result */)>
   Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap___ create_Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap___(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap___::fromUnsafe(swiftClosureWrapper);
@@ -98,15 +98,23 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(result);
     };
   }
-  
-  // pragma MARK: std::function<void(const std::string& /* result */)>
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = MLXReactNative::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& result) mutable -> void {
+
+  // pragma MARK: std::function<void(const LLMGenerationOutcome& /* result */)>
+  Func_void_LLMGenerationOutcome create_Func_void_LLMGenerationOutcome(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = MLXReactNative::Func_void_LLMGenerationOutcome::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const LLMGenerationOutcome& result) mutable -> void {
       swiftClosure.call(result);
     };
   }
-  
+
+  // pragma MARK: std::function<void(const std::string& /* token */)>
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = MLXReactNative::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& token) mutable -> void {
+      swiftClosure.call(token);
+    };
+  }
+
   // pragma MARK: std::function<void(const std::string& /* toolName */, const std::string& /* args */)>
   Func_void_std__string_std__string create_Func_void_std__string_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__string_std__string::fromUnsafe(swiftClosureWrapper);
@@ -114,7 +122,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(toolName, args);
     };
   }
-  
+
   // pragma MARK: std::function<void(const StreamEventEnvelope& /* event */)>
   Func_void_StreamEventEnvelope create_Func_void_StreamEventEnvelope(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_StreamEventEnvelope::fromUnsafe(swiftClosureWrapper);
@@ -122,7 +130,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(event);
     };
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridLLMSpec>
   std::shared_ptr<HybridLLMSpec> create_std__shared_ptr_HybridLLMSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridLLMSpec_cxx swiftPart = MLXReactNative::HybridLLMSpec_cxx::fromUnsafe(swiftUnsafePointer);
@@ -138,7 +146,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     MLXReactNative::HybridLLMSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
-  
+
   // pragma MARK: std::function<void(bool /* result */)>
   Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_bool::fromUnsafe(swiftClosureWrapper);
@@ -146,7 +154,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(result);
     };
   }
-  
+
   // pragma MARK: std::function<void(const std::vector<std::string>& /* result */)>
   Func_void_std__vector_std__string_ create_Func_void_std__vector_std__string_(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = MLXReactNative::Func_void_std__vector_std__string_::fromUnsafe(swiftClosureWrapper);
@@ -154,7 +162,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
       swiftClosure.call(result);
     };
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridModelManagerSpec>
   std::shared_ptr<HybridModelManagerSpec> create_std__shared_ptr_HybridModelManagerSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridModelManagerSpec_cxx swiftPart = MLXReactNative::HybridModelManagerSpec_cxx::fromUnsafe(swiftUnsafePointer);
@@ -170,7 +178,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     MLXReactNative::HybridModelManagerSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridSTTSpec>
   std::shared_ptr<HybridSTTSpec> create_std__shared_ptr_HybridSTTSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridSTTSpec_cxx swiftPart = MLXReactNative::HybridSTTSpec_cxx::fromUnsafe(swiftUnsafePointer);
@@ -186,7 +194,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     MLXReactNative::HybridSTTSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridTTSSpec>
   std::shared_ptr<HybridTTSSpec> create_std__shared_ptr_HybridTTSSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridTTSSpec_cxx swiftPart = MLXReactNative::HybridTTSSpec_cxx::fromUnsafe(swiftUnsafePointer);

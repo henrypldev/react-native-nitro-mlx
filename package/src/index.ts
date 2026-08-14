@@ -41,13 +41,16 @@ export type {
   EmbeddingsLoadOptions,
 } from './specs/Embeddings.nitro'
 export type {
-  GenerationEndEvent,
+  GenerationOutcomeEvent,
   GenerationStartEvent,
   GenerationStats,
   LLM as LLMSpec,
   LLMContextConfig,
   LLMGenerationConfig,
+  LLMGenerationFinishReason,
+  LLMGenerationOutcome,
   LLMLoadOptions,
+  LLMToolExecution,
   StreamEvent,
   ThinkingChunkEvent,
   ThinkingEndEvent,
