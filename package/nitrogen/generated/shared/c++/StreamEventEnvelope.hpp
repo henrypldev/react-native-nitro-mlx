@@ -30,13 +30,13 @@
 
 // Forward declaration of `StreamEventKind` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
-// Forward declaration of `GenerationStats` to properly resolve imports.
-namespace margelo::nitro::mlxreactnative { struct GenerationStats; }
+// Forward declaration of `LLMGenerationOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 
 #include "StreamEventKind.hpp"
 #include <optional>
 #include <string>
-#include "GenerationStats.hpp"
+#include "LLMGenerationOutcome.hpp"
 
 namespace margelo::nitro::mlxreactnative {
 
@@ -55,12 +55,11 @@ namespace margelo::nitro::mlxreactnative {
     std::optional<std::string> arguments     SWIFT_PRIVATE;
     std::optional<std::string> result     SWIFT_PRIVATE;
     std::optional<std::string> error     SWIFT_PRIVATE;
-    std::optional<std::string> stage     SWIFT_PRIVATE;
-    std::optional<GenerationStats> stats     SWIFT_PRIVATE;
+    std::optional<LLMGenerationOutcome> outcome     SWIFT_PRIVATE;
 
   public:
     StreamEventEnvelope() = default;
-    explicit StreamEventEnvelope(StreamEventKind kind, std::optional<double> timestamp, std::optional<std::string> token, std::optional<std::string> chunk, std::optional<std::string> content, std::optional<std::string> id, std::optional<std::string> name, std::optional<std::string> arguments, std::optional<std::string> result, std::optional<std::string> error, std::optional<std::string> stage, std::optional<GenerationStats> stats): kind(kind), timestamp(timestamp), token(token), chunk(chunk), content(content), id(id), name(name), arguments(arguments), result(result), error(error), stage(stage), stats(stats) {}
+    explicit StreamEventEnvelope(StreamEventKind kind, std::optional<double> timestamp, std::optional<std::string> token, std::optional<std::string> chunk, std::optional<std::string> content, std::optional<std::string> id, std::optional<std::string> name, std::optional<std::string> arguments, std::optional<std::string> result, std::optional<std::string> error, std::optional<LLMGenerationOutcome> outcome): kind(kind), timestamp(timestamp), token(token), chunk(chunk), content(content), id(id), name(name), arguments(arguments), result(result), error(error), outcome(outcome) {}
 
   public:
     friend bool operator==(const StreamEventEnvelope& lhs, const StreamEventEnvelope& rhs) = default;
@@ -86,8 +85,7 @@ namespace margelo::nitro {
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "arguments"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "result"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "error"))),
-        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "stage"))),
-        JSIConverter<std::optional<margelo::nitro::mlxreactnative::GenerationStats>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "stats")))
+        JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationOutcome>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "outcome")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mlxreactnative::StreamEventEnvelope& arg) {
@@ -102,8 +100,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "arguments"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.arguments));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "result"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.result));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "error"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.error));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "stage"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.stage));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "stats"), JSIConverter<std::optional<margelo::nitro::mlxreactnative::GenerationStats>>::toJSI(runtime, arg.stats));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "outcome"), JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationOutcome>>::toJSI(runtime, arg.outcome));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -124,8 +121,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "arguments")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "result")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "error")))) return false;
-      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "stage")))) return false;
-      if (!JSIConverter<std::optional<margelo::nitro::mlxreactnative::GenerationStats>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "stats")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::mlxreactnative::LLMGenerationOutcome>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "outcome")))) return false;
       return true;
     }
   };

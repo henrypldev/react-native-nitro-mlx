@@ -30,10 +30,16 @@ namespace margelo::nitro::mlxreactnative { class HybridTTSSpec; }
 namespace margelo::nitro::mlxreactnative { struct LLMContextConfig; }
 // Forward declaration of `LLMGenerationConfig` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationConfig; }
+// Forward declaration of `LLMGenerationFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMGenerationFinishReason; }
+// Forward declaration of `LLMGenerationOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 // Forward declaration of `LLMLoadOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `LLMToolExecution` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
 // Forward declaration of `STTListeningOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
@@ -76,8 +82,11 @@ namespace MLXReactNative { class HybridTTSSpec_cxx; }
 #include "HybridTTSSpec.hpp"
 #include "LLMContextConfig.hpp"
 #include "LLMGenerationConfig.hpp"
+#include "LLMGenerationFinishReason.hpp"
+#include "LLMGenerationOutcome.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "LLMToolExecution.hpp"
 #include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
 #include "STTTranscribeOptions.hpp"
@@ -117,7 +126,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
     return PromiseHolder<void>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void()>
   /**
    * Specialized version of `std::function<void()>`.
@@ -139,7 +148,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
     return Func_void_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
   /**
    * Specialized version of `std::function<void(const std::exception_ptr&)>`.
@@ -161,7 +170,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<void(double /* progress */)>
   /**
    * Specialized version of `std::function<void(double)>`.
@@ -183,7 +192,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
     return Func_void_double_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::optional<std::function<void(double /* progress */)>>
   /**
    * Specialized version of `std::optional<std::function<void(double / * progress * /)>>`.
@@ -198,7 +207,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline std::function<void(double /* progress */)> get_std__optional_std__function_void_double____progress______(const std::optional<std::function<void(double /* progress */)>>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<EmbeddingsLoadOptions>
   /**
    * Specialized version of `std::optional<EmbeddingsLoadOptions>`.
@@ -213,7 +222,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline EmbeddingsLoadOptions get_std__optional_EmbeddingsLoadOptions_(const std::optional<EmbeddingsLoadOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>`.
@@ -225,7 +234,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<std::shared_ptr<ArrayBuffer>> wrap_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer___(std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> promise) noexcept {
     return PromiseHolder<std::shared_ptr<ArrayBuffer>>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<ArrayBuffer>& /* result */)>
   /**
    * Specialized version of `std::function<void(const std::shared_ptr<ArrayBuffer>&)>`.
@@ -247,7 +256,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__shared_ptr_ArrayBuffer__Wrapper wrap_Func_void_std__shared_ptr_ArrayBuffer_(Func_void_std__shared_ptr_ArrayBuffer_ value) noexcept {
     return Func_void_std__shared_ptr_ArrayBuffer__Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::optional<bool>
   /**
    * Specialized version of `std::optional<bool>`.
@@ -262,7 +271,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<EmbeddingsEmbedOptions>
   /**
    * Specialized version of `std::optional<EmbeddingsEmbedOptions>`.
@@ -277,7 +286,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline EmbeddingsEmbedOptions get_std__optional_EmbeddingsEmbedOptions_(const std::optional<EmbeddingsEmbedOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::vector<std::shared_ptr<ArrayBuffer>>
   /**
    * Specialized version of `std::vector<std::shared_ptr<ArrayBuffer>>`.
@@ -288,7 +297,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>`.
@@ -300,7 +309,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<std::vector<std::shared_ptr<ArrayBuffer>>> wrap_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer____(std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>> promise) noexcept {
     return PromiseHolder<std::vector<std::shared_ptr<ArrayBuffer>>>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(const std::vector<std::shared_ptr<ArrayBuffer>>& /* result */)>
   /**
    * Specialized version of `std::function<void(const std::vector<std::shared_ptr<ArrayBuffer>>&)>`.
@@ -322,7 +331,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__vector_std__shared_ptr_ArrayBuffer___Wrapper wrap_Func_void_std__vector_std__shared_ptr_ArrayBuffer__(Func_void_std__vector_std__shared_ptr_ArrayBuffer__ value) noexcept {
     return Func_void_std__vector_std__shared_ptr_ArrayBuffer___Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::vector<std::string>
   /**
    * Specialized version of `std::vector<std::string>`.
@@ -333,7 +342,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridEmbeddingsSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridEmbeddingsSpec>`.
@@ -341,11 +350,11 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   using std__shared_ptr_HybridEmbeddingsSpec_ = std::shared_ptr<HybridEmbeddingsSpec>;
   std::shared_ptr<HybridEmbeddingsSpec> create_std__shared_ptr_HybridEmbeddingsSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridEmbeddingsSpec_(std__shared_ptr_HybridEmbeddingsSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridEmbeddingsSpec>
   using std__weak_ptr_HybridEmbeddingsSpec_ = std::weak_ptr<HybridEmbeddingsSpec>;
   inline std__weak_ptr_HybridEmbeddingsSpec_ weakify_std__shared_ptr_HybridEmbeddingsSpec_(const std::shared_ptr<HybridEmbeddingsSpec>& strong) noexcept { return strong; }
-  
+
   // pragma MARK: Result<std::shared_ptr<Promise<void>>>
   using Result_std__shared_ptr_Promise_void___ = Result<std::shared_ptr<Promise<void>>>;
   inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::shared_ptr<Promise<void>>& value) noexcept {
@@ -354,7 +363,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<void>>>::withError(error);
   }
-  
+
   // pragma MARK: Result<void>
   using Result_void_ = Result<void>;
   inline Result_void_ create_Result_void_() noexcept {
@@ -363,7 +372,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
     return Result<void>::withError(error);
   }
-  
+
   // pragma MARK: Result<std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>>
   using Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____ = Result<std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>>;
   inline Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____ create_Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____(const std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>& value) noexcept {
@@ -372,7 +381,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____ create_Result_std__shared_ptr_Promise_std__shared_ptr_ArrayBuffer____(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>>>::withError(error);
   }
-  
+
   // pragma MARK: Result<std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>>
   using Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____ = Result<std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>>;
   inline Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____ create_Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____(const std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>& value) noexcept {
@@ -381,7 +390,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____ create_Result_std__shared_ptr_Promise_std__vector_std__shared_ptr_ArrayBuffer_____(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<std::vector<std::shared_ptr<ArrayBuffer>>>>>::withError(error);
   }
-  
+
   // pragma MARK: std::vector<LLMMessage>
   /**
    * Specialized version of `std::vector<LLMMessage>`.
@@ -392,7 +401,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::optional<std::vector<LLMMessage>>
   /**
    * Specialized version of `std::optional<std::vector<LLMMessage>>`.
@@ -407,7 +416,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline std::vector<LLMMessage> get_std__optional_std__vector_LLMMessage__(const std::optional<std::vector<LLMMessage>>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::vector<ToolParameter>
   /**
    * Specialized version of `std::vector<ToolParameter>`.
@@ -418,7 +427,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>`.
@@ -430,7 +439,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<std::shared_ptr<AnyMap>> wrap_std__shared_ptr_Promise_std__shared_ptr_AnyMap___(std::shared_ptr<Promise<std::shared_ptr<AnyMap>>> promise) noexcept {
     return PromiseHolder<std::shared_ptr<AnyMap>>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<AnyMap>& /* result */)>
   /**
    * Specialized version of `std::function<void(const std::shared_ptr<AnyMap>&)>`.
@@ -452,7 +461,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__shared_ptr_AnyMap__Wrapper wrap_Func_void_std__shared_ptr_AnyMap_(Func_void_std__shared_ptr_AnyMap_ value) noexcept {
     return Func_void_std__shared_ptr_AnyMap__Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>>(const std::shared_ptr<AnyMap>& /* args */)>
   /**
    * Specialized version of `std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>>(const std::shared_ptr<AnyMap>&)>`.
@@ -475,7 +484,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap__Wrapper wrap_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap_(Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap_ value) noexcept {
     return Func_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap______std__shared_ptr_AnyMap__Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>>`.
@@ -487,7 +496,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>> wrap_std__shared_ptr_Promise_std__shared_ptr_Promise_std__shared_ptr_AnyMap_____(std::shared_ptr<Promise<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>> promise) noexcept {
     return PromiseHolder<std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(const std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>& /* result */)>
   /**
    * Specialized version of `std::function<void(const std::shared_ptr<Promise<std::shared_ptr<AnyMap>>>&)>`.
@@ -509,7 +518,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap____Wrapper wrap_Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap___(Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap___ value) noexcept {
     return Func_void_std__shared_ptr_Promise_std__shared_ptr_AnyMap____Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::vector<ToolDefinition>
   /**
    * Specialized version of `std::vector<ToolDefinition>`.
@@ -520,7 +529,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::optional<std::vector<ToolDefinition>>
   /**
    * Specialized version of `std::optional<std::vector<ToolDefinition>>`.
@@ -535,7 +544,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline std::vector<ToolDefinition> get_std__optional_std__vector_ToolDefinition__(const std::optional<std::vector<ToolDefinition>>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<double>
   /**
    * Specialized version of `std::optional<double>`.
@@ -550,7 +559,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<LLMGenerationConfig>
   /**
    * Specialized version of `std::optional<LLMGenerationConfig>`.
@@ -565,7 +574,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline LLMGenerationConfig get_std__optional_LLMGenerationConfig_(const std::optional<LLMGenerationConfig>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<LLMContextConfig>
   /**
    * Specialized version of `std::optional<LLMContextConfig>`.
@@ -580,7 +589,22 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline LLMContextConfig get_std__optional_LLMContextConfig_(const std::optional<LLMContextConfig>& optional) noexcept {
     return optional.value();
   }
-  
+
+  // pragma MARK: std::optional<LLMToolExecution>
+  /**
+   * Specialized version of `std::optional<LLMToolExecution>`.
+   */
+  using std__optional_LLMToolExecution_ = std::optional<LLMToolExecution>;
+  inline std::optional<LLMToolExecution> create_std__optional_LLMToolExecution_(const LLMToolExecution& value) noexcept {
+    return std::optional<LLMToolExecution>(value);
+  }
+  inline bool has_value_std__optional_LLMToolExecution_(const std::optional<LLMToolExecution>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline LLMToolExecution get_std__optional_LLMToolExecution_(const std::optional<LLMToolExecution>& optional) noexcept {
+    return optional.value();
+  }
+
   // pragma MARK: std::optional<LLMLoadOptions>
   /**
    * Specialized version of `std::optional<LLMLoadOptions>`.
@@ -595,41 +619,78 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline LLMLoadOptions get_std__optional_LLMLoadOptions_(const std::optional<LLMLoadOptions>& optional) noexcept {
     return optional.value();
   }
-  
-  // pragma MARK: std::shared_ptr<Promise<std::string>>
+
+  // pragma MARK: std::optional<std::string>
   /**
-   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
+   * Specialized version of `std::optional<std::string>`.
    */
-  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
-  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
-    return Promise<std::string>::create();
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
   }
-  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
-    return PromiseHolder<std::string>(std::move(promise));
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
   }
-  
-  // pragma MARK: std::function<void(const std::string& /* result */)>
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.value();
+  }
+
+  // pragma MARK: std::shared_ptr<Promise<LLMGenerationOutcome>>
   /**
-   * Specialized version of `std::function<void(const std::string&)>`.
+   * Specialized version of `std::shared_ptr<Promise<LLMGenerationOutcome>>`.
    */
-  using Func_void_std__string = std::function<void(const std::string& /* result */)>;
+  using std__shared_ptr_Promise_LLMGenerationOutcome__ = std::shared_ptr<Promise<LLMGenerationOutcome>>;
+  inline std::shared_ptr<Promise<LLMGenerationOutcome>> create_std__shared_ptr_Promise_LLMGenerationOutcome__() noexcept {
+    return Promise<LLMGenerationOutcome>::create();
+  }
+  inline PromiseHolder<LLMGenerationOutcome> wrap_std__shared_ptr_Promise_LLMGenerationOutcome__(std::shared_ptr<Promise<LLMGenerationOutcome>> promise) noexcept {
+    return PromiseHolder<LLMGenerationOutcome>(std::move(promise));
+  }
+
+  // pragma MARK: std::function<void(const LLMGenerationOutcome& /* result */)>
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * result * /)>`, this can be used from Swift.
+   * Specialized version of `std::function<void(const LLMGenerationOutcome&)>`.
    */
-  class Func_void_std__string_Wrapper final {
+  using Func_void_LLMGenerationOutcome = std::function<void(const LLMGenerationOutcome& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const LLMGenerationOutcome& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_LLMGenerationOutcome_Wrapper final {
   public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* result */)>>(std::move(func))) {}
-    inline void call(std::string result) const noexcept {
+    explicit Func_void_LLMGenerationOutcome_Wrapper(std::function<void(const LLMGenerationOutcome& /* result */)>&& func): _function(std::make_unique<std::function<void(const LLMGenerationOutcome& /* result */)>>(std::move(func))) {}
+    inline void call(LLMGenerationOutcome result) const noexcept {
       _function->operator()(result);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* result */)>> _function;
+    std::unique_ptr<std::function<void(const LLMGenerationOutcome& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_LLMGenerationOutcome create_Func_void_LLMGenerationOutcome(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_LLMGenerationOutcome_Wrapper wrap_Func_void_LLMGenerationOutcome(Func_void_LLMGenerationOutcome value) noexcept {
+    return Func_void_LLMGenerationOutcome_Wrapper(std::move(value));
+  }
+
+  // pragma MARK: std::function<void(const std::string& /* token */)>
+  /**
+   * Specialized version of `std::function<void(const std::string&)>`.
+   */
+  using Func_void_std__string = std::function<void(const std::string& /* token */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::string& / * token * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__string_Wrapper final {
+  public:
+    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* token */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* token */)>>(std::move(func))) {}
+    inline void call(std::string token) const noexcept {
+      _function->operator()(token);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::string& /* token */)>> _function;
   } SWIFT_NONCOPYABLE;
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
     return Func_void_std__string_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::function<void(const std::string& /* toolName */, const std::string& /* args */)>
   /**
    * Specialized version of `std::function<void(const std::string&, const std::string&)>`.
@@ -651,7 +712,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__string_std__string_Wrapper wrap_Func_void_std__string_std__string(Func_void_std__string_std__string value) noexcept {
     return Func_void_std__string_std__string_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>
   /**
    * Specialized version of `std::optional<std::function<void(const std::string& / * toolName * /, const std::string& / * args * /)>>`.
@@ -666,37 +727,22 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline std::function<void(const std::string& /* toolName */, const std::string& /* args */)> get_std__optional_std__function_void_const_std__string_____toolName_____const_std__string_____args______(const std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>& optional) noexcept {
     return optional.value();
   }
-  
-  // pragma MARK: std::optional<std::string>
+
+  // pragma MARK: std::optional<LLMGenerationOutcome>
   /**
-   * Specialized version of `std::optional<std::string>`.
+   * Specialized version of `std::optional<LLMGenerationOutcome>`.
    */
-  using std__optional_std__string_ = std::optional<std::string>;
-  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
-    return std::optional<std::string>(value);
+  using std__optional_LLMGenerationOutcome_ = std::optional<LLMGenerationOutcome>;
+  inline std::optional<LLMGenerationOutcome> create_std__optional_LLMGenerationOutcome_(const LLMGenerationOutcome& value) noexcept {
+    return std::optional<LLMGenerationOutcome>(value);
   }
-  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+  inline bool has_value_std__optional_LLMGenerationOutcome_(const std::optional<LLMGenerationOutcome>& optional) noexcept {
     return optional.has_value();
   }
-  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+  inline LLMGenerationOutcome get_std__optional_LLMGenerationOutcome_(const std::optional<LLMGenerationOutcome>& optional) noexcept {
     return optional.value();
   }
-  
-  // pragma MARK: std::optional<GenerationStats>
-  /**
-   * Specialized version of `std::optional<GenerationStats>`.
-   */
-  using std__optional_GenerationStats_ = std::optional<GenerationStats>;
-  inline std::optional<GenerationStats> create_std__optional_GenerationStats_(const GenerationStats& value) noexcept {
-    return std::optional<GenerationStats>(value);
-  }
-  inline bool has_value_std__optional_GenerationStats_(const std::optional<GenerationStats>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline GenerationStats get_std__optional_GenerationStats_(const std::optional<GenerationStats>& optional) noexcept {
-    return optional.value();
-  }
-  
+
   // pragma MARK: std::function<void(const StreamEventEnvelope& /* event */)>
   /**
    * Specialized version of `std::function<void(const StreamEventEnvelope&)>`.
@@ -718,7 +764,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_StreamEventEnvelope_Wrapper wrap_Func_void_StreamEventEnvelope(Func_void_StreamEventEnvelope value) noexcept {
     return Func_void_StreamEventEnvelope_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridLLMSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridLLMSpec>`.
@@ -726,29 +772,20 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   using std__shared_ptr_HybridLLMSpec_ = std::shared_ptr<HybridLLMSpec>;
   std::shared_ptr<HybridLLMSpec> create_std__shared_ptr_HybridLLMSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridLLMSpec_(std__shared_ptr_HybridLLMSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridLLMSpec>
   using std__weak_ptr_HybridLLMSpec_ = std::weak_ptr<HybridLLMSpec>;
   inline std__weak_ptr_HybridLLMSpec_ weakify_std__shared_ptr_HybridLLMSpec_(const std::shared_ptr<HybridLLMSpec>& strong) noexcept { return strong; }
-  
-  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
-  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
+
+  // pragma MARK: Result<std::shared_ptr<Promise<LLMGenerationOutcome>>>
+  using Result_std__shared_ptr_Promise_LLMGenerationOutcome___ = Result<std::shared_ptr<Promise<LLMGenerationOutcome>>>;
+  inline Result_std__shared_ptr_Promise_LLMGenerationOutcome___ create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(const std::shared_ptr<Promise<LLMGenerationOutcome>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<LLMGenerationOutcome>>>::withValue(value);
   }
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  inline Result_std__shared_ptr_Promise_LLMGenerationOutcome___ create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<LLMGenerationOutcome>>>::withError(error);
   }
-  
-  // pragma MARK: Result<GenerationStats>
-  using Result_GenerationStats_ = Result<GenerationStats>;
-  inline Result_GenerationStats_ create_Result_GenerationStats_(const GenerationStats& value) noexcept {
-    return Result<GenerationStats>::withValue(value);
-  }
-  inline Result_GenerationStats_ create_Result_GenerationStats_(const std::exception_ptr& error) noexcept {
-    return Result<GenerationStats>::withError(error);
-  }
-  
+
   // pragma MARK: Result<std::vector<LLMMessage>>
   using Result_std__vector_LLMMessage__ = Result<std::vector<LLMMessage>>;
   inline Result_std__vector_LLMMessage__ create_Result_std__vector_LLMMessage__(const std::vector<LLMMessage>& value) noexcept {
@@ -757,7 +794,19 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__vector_LLMMessage__ create_Result_std__vector_LLMMessage__(const std::exception_ptr& error) noexcept {
     return Result<std::vector<LLMMessage>>::withError(error);
   }
-  
+
+  // pragma MARK: std::shared_ptr<Promise<std::string>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
+   */
+  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
+  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
+    return Promise<std::string>::create();
+  }
+  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
+    return PromiseHolder<std::string>(std::move(promise));
+  }
+
   // pragma MARK: std::shared_ptr<Promise<bool>>
   /**
    * Specialized version of `std::shared_ptr<Promise<bool>>`.
@@ -769,7 +818,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<bool> wrap_std__shared_ptr_Promise_bool__(std::shared_ptr<Promise<bool>> promise) noexcept {
     return PromiseHolder<bool>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(bool /* result */)>
   /**
    * Specialized version of `std::function<void(bool)>`.
@@ -791,7 +840,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_bool_Wrapper wrap_Func_void_bool(Func_void_bool value) noexcept {
     return Func_void_bool_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<Promise<std::vector<std::string>>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::vector<std::string>>>`.
@@ -803,7 +852,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline PromiseHolder<std::vector<std::string>> wrap_std__shared_ptr_Promise_std__vector_std__string___(std::shared_ptr<Promise<std::vector<std::string>>> promise) noexcept {
     return PromiseHolder<std::vector<std::string>>(std::move(promise));
   }
-  
+
   // pragma MARK: std::function<void(const std::vector<std::string>& /* result */)>
   /**
    * Specialized version of `std::function<void(const std::vector<std::string>&)>`.
@@ -825,7 +874,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Func_void_std__vector_std__string__Wrapper wrap_Func_void_std__vector_std__string_(Func_void_std__vector_std__string_ value) noexcept {
     return Func_void_std__vector_std__string__Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridModelManagerSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridModelManagerSpec>`.
@@ -833,11 +882,20 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   using std__shared_ptr_HybridModelManagerSpec_ = std::shared_ptr<HybridModelManagerSpec>;
   std::shared_ptr<HybridModelManagerSpec> create_std__shared_ptr_HybridModelManagerSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridModelManagerSpec_(std__shared_ptr_HybridModelManagerSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridModelManagerSpec>
   using std__weak_ptr_HybridModelManagerSpec_ = std::weak_ptr<HybridModelManagerSpec>;
   inline std__weak_ptr_HybridModelManagerSpec_ weakify_std__shared_ptr_HybridModelManagerSpec_(const std::shared_ptr<HybridModelManagerSpec>& strong) noexcept { return strong; }
-  
+
+  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
+  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  }
+
   // pragma MARK: Result<std::shared_ptr<Promise<bool>>>
   using Result_std__shared_ptr_Promise_bool___ = Result<std::shared_ptr<Promise<bool>>>;
   inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::shared_ptr<Promise<bool>>& value) noexcept {
@@ -846,7 +904,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__shared_ptr_Promise_bool___ create_Result_std__shared_ptr_Promise_bool___(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<bool>>>::withError(error);
   }
-  
+
   // pragma MARK: Result<std::shared_ptr<Promise<std::vector<std::string>>>>
   using Result_std__shared_ptr_Promise_std__vector_std__string____ = Result<std::shared_ptr<Promise<std::vector<std::string>>>>;
   inline Result_std__shared_ptr_Promise_std__vector_std__string____ create_Result_std__shared_ptr_Promise_std__vector_std__string____(const std::shared_ptr<Promise<std::vector<std::string>>>& value) noexcept {
@@ -855,7 +913,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline Result_std__shared_ptr_Promise_std__vector_std__string____ create_Result_std__shared_ptr_Promise_std__vector_std__string____(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<std::vector<std::string>>>>::withError(error);
   }
-  
+
   // pragma MARK: std::optional<STTLoadOptions>
   /**
    * Specialized version of `std::optional<STTLoadOptions>`.
@@ -870,7 +928,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline STTLoadOptions get_std__optional_STTLoadOptions_(const std::optional<STTLoadOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<STTTranscribeOptions>
   /**
    * Specialized version of `std::optional<STTTranscribeOptions>`.
@@ -885,7 +943,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline STTTranscribeOptions get_std__optional_STTTranscribeOptions_(const std::optional<STTTranscribeOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<STTListeningOptions>
   /**
    * Specialized version of `std::optional<STTListeningOptions>`.
@@ -900,7 +958,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline STTListeningOptions get_std__optional_STTListeningOptions_(const std::optional<STTListeningOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridSTTSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridSTTSpec>`.
@@ -908,11 +966,11 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   using std__shared_ptr_HybridSTTSpec_ = std::shared_ptr<HybridSTTSpec>;
   std::shared_ptr<HybridSTTSpec> create_std__shared_ptr_HybridSTTSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridSTTSpec_(std__shared_ptr_HybridSTTSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridSTTSpec>
   using std__weak_ptr_HybridSTTSpec_ = std::weak_ptr<HybridSTTSpec>;
   inline std__weak_ptr_HybridSTTSpec_ weakify_std__shared_ptr_HybridSTTSpec_(const std::shared_ptr<HybridSTTSpec>& strong) noexcept { return strong; }
-  
+
   // pragma MARK: std::optional<TTSLoadOptions>
   /**
    * Specialized version of `std::optional<TTSLoadOptions>`.
@@ -927,7 +985,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline TTSLoadOptions get_std__optional_TTSLoadOptions_(const std::optional<TTSLoadOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::optional<TTSGenerateOptions>
   /**
    * Specialized version of `std::optional<TTSGenerateOptions>`.
@@ -942,7 +1000,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   inline TTSGenerateOptions get_std__optional_TTSGenerateOptions_(const std::optional<TTSGenerateOptions>& optional) noexcept {
     return optional.value();
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridTTSSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridTTSSpec>`.
@@ -950,7 +1008,7 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   using std__shared_ptr_HybridTTSSpec_ = std::shared_ptr<HybridTTSSpec>;
   std::shared_ptr<HybridTTSSpec> create_std__shared_ptr_HybridTTSSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridTTSSpec_(std__shared_ptr_HybridTTSSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridTTSSpec>
   using std__weak_ptr_HybridTTSSpec_ = std::weak_ptr<HybridTTSSpec>;
   inline std__weak_ptr_HybridTTSSpec_ weakify_std__shared_ptr_HybridTTSSpec_(const std::shared_ptr<HybridTTSSpec>& strong) noexcept { return strong; }

@@ -11,6 +11,30 @@ export interface GenerationStats {
   toolExecutionTime: number
 }
 
+export type LLMGenerationFinishReason =
+  | 'completed'
+  | 'stopped'
+  | 'superseded'
+  | 'unloaded'
+  | 'failed'
+
+/**
+ * Terminal outcome shared by every generation entry point.
+ * A started turn always resolves with one of these; only pre-turn validation rejects.
+ */
+export interface LLMGenerationOutcome {
+  /** User-visible content with thinking tags removed. */
+  content: string
+  /** Model thinking content, when the model emitted thinking tags. */
+  thinking?: string
+  stats: GenerationStats
+  finishReason: LLMGenerationFinishReason
+  /** Localized failure message when finishReason is `failed`. */
+  error?: string
+  /** Failure stage: 'prepare' | 'generate' | 'tool' | 'history'. */
+  stage?: string
+}
+
 export interface GenerationStartEvent {
   type: 'generation_start'
   timestamp: number
@@ -61,20 +85,9 @@ export interface ToolCallFailedEvent {
   error: string
 }
 
-export interface GenerationEndEvent {
-  type: 'generation_end'
-  content: string
-  stats: GenerationStats
-}
-
-export interface GenerationErrorEvent {
-  type: 'generation_error'
-  /** Localized failure message */
-  error: string
-  /** Failure stage: 'prepare' | 'generate' | 'tool' | 'history' */
-  stage: string
-  /** Partial stats at the moment of failure (real elapsed time, tokens so far) */
-  stats: GenerationStats
+export interface GenerationOutcomeEvent {
+  type: 'generation_outcome'
+  outcome: LLMGenerationOutcome
 }
 
 export type StreamEvent =
@@ -87,8 +100,7 @@ export type StreamEvent =
   | ToolCallExecutingEvent
   | ToolCallCompletedEvent
   | ToolCallFailedEvent
-  | GenerationEndEvent
-  | GenerationErrorEvent
+  | GenerationOutcomeEvent
 
 /**
  * Discriminant for `StreamEventEnvelope`.
@@ -108,8 +120,7 @@ export type StreamEventKind =
   | 'tool_call_executing'
   | 'tool_call_completed'
   | 'tool_call_failed'
-  | 'generation_end'
-  | 'generation_error'
+  | 'generation_outcome'
 
 /**
  * Flat wire representation of a `StreamEvent`. Which fields are populated depends on
@@ -127,8 +138,7 @@ export interface StreamEventEnvelope {
   arguments?: string
   result?: string
   error?: string
-  stage?: string
-  stats?: GenerationStats
+  outcome?: LLMGenerationOutcome
 }
 
 export interface LLMMessage {
@@ -195,6 +205,8 @@ export interface ToolDefinition {
   handler: (args: AnyMap) => Promise<AnyMap>
 }
 
+export type LLMToolExecution = 'parallel' | 'sequential'
+
 /** Options for loading a model.
  */
 export interface LLMLoadOptions {
@@ -212,6 +224,8 @@ export interface LLMLoadOptions {
   tokenBatchSize?: number
   /** Context trimming behavior for managed chat history */
   contextConfig?: LLMContextConfig
+  /** How tool calls emitted by the same model pass are executed. @default 'parallel' */
+  toolExecution?: LLMToolExecution
 }
 
 /**
@@ -229,9 +243,9 @@ export interface LLM extends HybridObject<{ ios: 'swift' }> {
   /**
    * Generate a complete response for a prompt.
    * @param prompt - The input text to generate a response for
-   * @returns The generated text
+   * @returns The normalized terminal outcome
    */
-  generate(prompt: string): Promise<string>
+  generate(prompt: string): Promise<LLMGenerationOutcome>
 
   /**
    * Stream a response token by token with optional tool calling support.
@@ -239,18 +253,18 @@ export interface LLM extends HybridObject<{ ios: 'swift' }> {
    * @param prompt - The input text to generate a response for
    * @param onToken - Callback invoked for each generated token
    * @param onToolCall - Optional callback invoked when a tool is called (for UI feedback)
-   * @returns The complete generated text
+   * @returns The normalized terminal outcome
    */
   stream(
     prompt: string,
     onToken: (token: string) => void,
     onToolCall?: (toolName: string, args: string) => void,
-  ): Promise<string>
+  ): Promise<LLMGenerationOutcome>
 
   streamWithEvents(
     prompt: string,
     onEvent: (event: StreamEventEnvelope) => void,
-  ): Promise<string>
+  ): Promise<LLMGenerationOutcome>
 
   /**
    * Stop the current generation.
@@ -261,12 +275,6 @@ export interface LLM extends HybridObject<{ ios: 'swift' }> {
    * Unload the current model and release memory.
    */
   unload(): void
-
-  /**
-   * Get statistics from the last generation.
-   * @returns Statistics including token count, speed, and timing
-   */
-  getLastGenerationStats(): GenerationStats
 
   /**
    * Get the message history if management is enabled.

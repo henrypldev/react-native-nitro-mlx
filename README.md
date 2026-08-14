@@ -53,8 +53,8 @@ await LLM.load('mlx-community/Qwen3-0.6B-4bit', {
   },
 })
 
-const response = await LLM.generate('What is the capital of France?')
-console.log(response)
+const outcome = await LLM.generate('What is the capital of France?')
+console.log(outcome.content)
 ```
 
 ### Load with Additional Context
@@ -78,10 +78,11 @@ await LLM.load('mlx-community/Qwen3-0.6B-4bit', {
 
 ```typescript
 let response = ''
-await LLM.stream('Tell me a story', (token) => {
+const outcome = await LLM.stream('Tell me a story', (token) => {
   response += token
   console.log(response)
 })
+console.log(outcome.finishReason, outcome.stats)
 ```
 
 ### Stop Generation
@@ -142,6 +143,7 @@ cases.
 | `generationConfig` | Default `LLMGenerationConfig` (temperature, top-p, max tokens, ...) |
 | `contextConfig` | `LLMContextConfig` for managed-history trimming |
 | `tokenBatchSize` | Tokens batched per JS bridge hop |
+| `toolExecution` | Execute same-pass tools in `'parallel'` (default) or `'sequential'` order |
 | `onUpdate` | Called on every state transition with the latest snapshot |
 | `onMessage` | Called when a user/assistant/tool message is appended to history |
 | `onToken` | Called for each streamed assistant token |
@@ -175,7 +177,7 @@ cases.
 | `partialAssistantThinking` | Accumulated thinking content during the current thinking block |
 | `activeToolCalls` | Tool calls currently in-flight for the active turn |
 | `lastError` | Last error thrown by `load()` or `sendMessage()` |
-| `lastStats` | Stats from the last completed generation |
+| `lastStats` | Stats from the most recent generation outcome |
 
 ### Text-to-Speech
 
@@ -264,8 +266,9 @@ your app's `Info.plist`. With Expo, set it in `app.json`:
 | Method | Description |
 |--------|-------------|
 | `load(modelId: string, options?: LLMLoadOptions): Promise<void>` | Load a model into memory |
-| `generate(prompt: string): Promise<string>` | Generate a complete response |
-| `stream(prompt: string, onToken: (token: string) => void): Promise<string>` | Stream tokens as they're generated |
+| `generate(prompt: string): Promise<LLMGenerationOutcome>` | Generate and return the normalized turn outcome |
+| `stream(prompt: string, onToken: (token: string) => void): Promise<LLMGenerationOutcome>` | Stream visible tokens and return the normalized turn outcome |
+| `streamWithEvents(prompt: string, onEvent: (event: StreamEvent) => void): Promise<LLMGenerationOutcome>` | Stream lifecycle events ending in `generation_outcome` and return the same outcome |
 | `stop(): void` | Stop the current generation |
 
 #### LLMLoadOptions
@@ -278,6 +281,7 @@ your app's `Info.plist`. With Expo, set it in `app.json`:
 | `tools` | `ToolDefinition[]` | Tools the model may call while streaming |
 | `generationConfig` | `LLMGenerationConfig` | Default generation parameters such as `maxTokens`, `temperature`, `topP`, KV cache config, and `prefillStepSize` |
 | `tokenBatchSize` | `number` | Number of streamed chunks to batch before crossing the JS bridge |
+| `toolExecution` | `'parallel' \| 'sequential'` | Same-pass tool execution mode; defaults to parallel |
 | `contextConfig` | `LLMContextConfig` | Managed-history trimming settings such as `maxContextTokens` and `keepLastMessages` |
 
 #### LLMMessage

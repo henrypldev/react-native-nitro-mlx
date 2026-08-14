@@ -18,12 +18,11 @@ public protocol HybridLLMSpec_protocol: HybridObject {
 
   // Methods
   func load(modelId: String, options: LLMLoadOptions?) throws -> Promise<Void>
-  func generate(prompt: String) throws -> Promise<String>
-  func stream(prompt: String, onToken: @escaping (_ token: String) -> Void, onToolCall: ((_ toolName: String, _ args: String) -> Void)?) throws -> Promise<String>
-  func streamWithEvents(prompt: String, onEvent: @escaping (_ event: StreamEventEnvelope) -> Void) throws -> Promise<String>
+  func generate(prompt: String) throws -> Promise<LLMGenerationOutcome>
+  func stream(prompt: String, onToken: @escaping (_ token: String) -> Void, onToolCall: ((_ toolName: String, _ args: String) -> Void)?) throws -> Promise<LLMGenerationOutcome>
+  func streamWithEvents(prompt: String, onEvent: @escaping (_ event: StreamEventEnvelope) -> Void) throws -> Promise<LLMGenerationOutcome>
   func stop() throws -> Void
   func unload() throws -> Void
-  func getLastGenerationStats() throws -> GenerationStats
   func getHistory() throws -> [LLMMessage]
   func clearHistory() throws -> Void
 }

@@ -185,26 +185,26 @@ open class HybridLLMSpec_cxx {
   }
   
   @inline(__always)
-  public final func generate(prompt: std.string) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func generate(prompt: std.string) -> bridge.Result_std__shared_ptr_Promise_LLMGenerationOutcome___ {
     do {
       let __result = try self.__implementation.generate(prompt: String(prompt))
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_LLMGenerationOutcome__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_LLMGenerationOutcome__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_LLMGenerationOutcome__(__promise)
         __result
-          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
+          .then({ __result in __promiseHolder.resolve(__result) })
           .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
         return __promise
       }()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__exceptionPtr)
     }
   }
   
   @inline(__always)
-  public final func stream(prompt: std.string, onToken: bridge.Func_void_std__string, onToolCall: bridge.std__optional_std__function_void_const_std__string_____toolName_____const_std__string_____args______) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func stream(prompt: std.string, onToken: bridge.Func_void_std__string, onToolCall: bridge.std__optional_std__function_void_const_std__string_____toolName_____const_std__string_____args______) -> bridge.Result_std__shared_ptr_Promise_LLMGenerationOutcome___ {
     do {
       let __result = try self.__implementation.stream(prompt: String(prompt), onToken: { () -> (String) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_std__string(onToken)
@@ -224,23 +224,23 @@ open class HybridLLMSpec_cxx {
           return nil
         }
       }())
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_LLMGenerationOutcome__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_LLMGenerationOutcome__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_LLMGenerationOutcome__(__promise)
         __result
-          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
+          .then({ __result in __promiseHolder.resolve(__result) })
           .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
         return __promise
       }()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__exceptionPtr)
     }
   }
   
   @inline(__always)
-  public final func streamWithEvents(prompt: std.string, onEvent: bridge.Func_void_StreamEventEnvelope) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+  public final func streamWithEvents(prompt: std.string, onEvent: bridge.Func_void_StreamEventEnvelope) -> bridge.Result_std__shared_ptr_Promise_LLMGenerationOutcome___ {
     do {
       let __result = try self.__implementation.streamWithEvents(prompt: String(prompt), onEvent: { () -> (StreamEventEnvelope) -> Void in
         let __wrappedFunction = bridge.wrap_Func_void_StreamEventEnvelope(onEvent)
@@ -248,18 +248,18 @@ open class HybridLLMSpec_cxx {
           __wrappedFunction.call(__event)
         }
       }())
-      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
-        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
-        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_LLMGenerationOutcome__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_LLMGenerationOutcome__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_LLMGenerationOutcome__(__promise)
         __result
-          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
+          .then({ __result in __promiseHolder.resolve(__result) })
           .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
         return __promise
       }()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__exceptionPtr)
     }
   }
   
@@ -282,18 +282,6 @@ open class HybridLLMSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_void_(__exceptionPtr)
-    }
-  }
-  
-  @inline(__always)
-  public final func getLastGenerationStats() -> bridge.Result_GenerationStats_ {
-    do {
-      let __result = try self.__implementation.getLastGenerationStats()
-      let __resultCpp = __result
-      return bridge.create_Result_GenerationStats_(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_GenerationStats_(__exceptionPtr)
     }
   }
   

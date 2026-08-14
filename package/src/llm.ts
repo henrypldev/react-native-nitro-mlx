@@ -8,7 +8,7 @@ import {
   validateLLMLoadOptions,
 } from './runtime'
 import type {
-  GenerationStats,
+  LLMGenerationOutcome,
   LLMLoadOptions,
   LLM as LLMSpec,
   StreamEvent,
@@ -57,13 +57,11 @@ function getInstance(): LLMSpec {
  * })
  *
  * // Stream a response
- * await LLM.stream('Hello!', token => {
+ * const outcome = await LLM.stream('Hello!', token => {
  *   process.stdout.write(token)
  * })
  *
- * // Get generation stats
- * const stats = LLM.getLastGenerationStats()
- * console.log(`${stats.tokensPerSecond} tokens/sec`)
+ * console.log(`${outcome.stats.tokensPerSecond} tokens/sec`)
  * ```
  */
 export const LLM = {
@@ -83,9 +81,9 @@ export const LLM = {
    * Generate a complete response for a prompt. Blocks until generation is complete.
    * For streaming responses, use `stream()` instead.
    * @param prompt - The input text to generate a response for
-   * @returns The complete generated text
+   * @returns The normalized terminal outcome
    */
-  generate(prompt: string): Promise<string> {
+  generate(prompt: string): Promise<LLMGenerationOutcome> {
     return getInstance().generate(assertNonEmptyString(prompt, 'LLM prompt'))
   },
 
@@ -97,13 +95,13 @@ export const LLM = {
    * @param onToken - Callback invoked for each generated token
    * @param onToolCall - Optional callback invoked when a tool is called.
    *   Receives the current tool call and an accumulated array of all tool calls so far.
-   * @returns The complete generated text
+   * @returns The normalized terminal outcome
    */
   stream(
     prompt: string,
     onToken: (token: string) => void,
     onToolCall?: (update: ToolCallUpdate) => void,
-  ): Promise<string> {
+  ): Promise<LLMGenerationOutcome> {
     const accumulatedToolCalls: ToolCallInfo[] = []
     const safeOnToken = createSafeCallback('LLM.stream onToken', onToken)
     const safeOnToolCall = createSafeCallback('LLM.stream onToolCall', onToolCall)
@@ -133,7 +131,7 @@ export const LLM = {
    *
    * @param prompt - The input text
    * @param onEvent - Callback receiving typed StreamEvent objects
-   * @returns Promise resolving to final content string (thinking content stripped)
+   * @returns Promise resolving to the normalized terminal outcome
    *
    * @example
    * ```ts
@@ -151,15 +149,19 @@ export const LLM = {
    *     case 'tool_call_start':
    *       showToolCallCard(event.name, event.arguments)
    *       break
-   *     case 'generation_error':
-   *       // Terminal event on failure. event.stage and event.stats are also set.
-   *       showError(event.error)
+   *     case 'generation_outcome':
+   *       if (event.outcome.finishReason === 'failed') {
+   *         showError(event.outcome.error)
+   *       }
    *       break
    *   }
    * })
    * ```
    */
-  streamWithEvents(prompt: string, onEvent: EventCallback): Promise<string> {
+  streamWithEvents(
+    prompt: string,
+    onEvent: EventCallback,
+  ): Promise<LLMGenerationOutcome> {
     const safeOnEvent = createSafeCallback('LLM.streamWithEvents onEvent', onEvent)
 
     return getInstance().streamWithEvents(
@@ -186,14 +188,6 @@ export const LLM = {
    */
   unload(): void {
     getInstance().unload()
-  },
-
-  /**
-   * Get statistics from the last generation.
-   * @returns Statistics including token count, tokens/sec (excluding tool execution), TTFT, total time, and tool execution time
-   */
-  getLastGenerationStats(): GenerationStats {
-    return getInstance().getLastGenerationStats()
   },
 
   /**

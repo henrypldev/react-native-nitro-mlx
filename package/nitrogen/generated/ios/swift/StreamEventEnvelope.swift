@@ -18,7 +18,7 @@ public extension StreamEventEnvelope {
   /**
    * Create a new instance of `StreamEventEnvelope`.
    */
-  init(kind: StreamEventKind, timestamp: Double?, token: String?, chunk: String?, content: String?, id: String?, name: String?, arguments: String?, result: String?, error: String?, stage: String?, stats: GenerationStats?) {
+  init(kind: StreamEventKind, timestamp: Double?, token: String?, chunk: String?, content: String?, id: String?, name: String?, arguments: String?, result: String?, error: String?, outcome: LLMGenerationOutcome?) {
     self.init(kind, { () -> bridge.std__optional_double_ in
       if let __unwrappedValue = timestamp {
         return bridge.create_std__optional_double_(__unwrappedValue)
@@ -73,15 +73,9 @@ public extension StreamEventEnvelope {
       } else {
         return .init()
       }
-    }(), { () -> bridge.std__optional_std__string_ in
-      if let __unwrappedValue = stage {
-        return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
-      } else {
-        return .init()
-      }
-    }(), { () -> bridge.std__optional_GenerationStats_ in
-      if let __unwrappedValue = stats {
-        return bridge.create_std__optional_GenerationStats_(__unwrappedValue)
+    }(), { () -> bridge.std__optional_LLMGenerationOutcome_ in
+      if let __unwrappedValue = outcome {
+        return bridge.create_std__optional_LLMGenerationOutcome_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -202,19 +196,7 @@ public extension StreamEventEnvelope {
   }
   
   @inline(__always)
-  var stage: String? {
-    return { () -> String? in
-      if bridge.has_value_std__optional_std__string_(self.__stage) {
-        let __unwrapped = bridge.get_std__optional_std__string_(self.__stage)
-        return String(__unwrapped)
-      } else {
-        return nil
-      }
-    }()
-  }
-  
-  @inline(__always)
-  var stats: GenerationStats? {
-    return self.__stats.value
+  var outcome: LLMGenerationOutcome? {
+    return self.__outcome.value
   }
 }

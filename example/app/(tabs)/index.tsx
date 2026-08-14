@@ -462,13 +462,13 @@ export default function ChatScreen() {
           )
           break
 
-        case 'generation_end':
+        case 'generation_outcome':
           addResult({
-            tokensPerSecond: event.stats.tokensPerSecond,
-            timeToFirstToken: event.stats.timeToFirstToken,
-            totalTokens: event.stats.tokenCount,
-            totalTime: event.stats.totalTime,
-            toolExecutionTime: event.stats.toolExecutionTime,
+            tokensPerSecond: event.outcome.stats.tokensPerSecond,
+            timeToFirstToken: event.outcome.stats.timeToFirstToken,
+            totalTokens: event.outcome.stats.tokenCount,
+            totalTime: event.outcome.stats.totalTime,
+            toolExecutionTime: event.outcome.stats.toolExecutionTime,
             timestamp: new Date(),
           })
           break

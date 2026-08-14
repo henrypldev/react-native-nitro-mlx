@@ -31,8 +31,8 @@ struct GenerationTaskControllerTests {
 
     @MainActor
     private static func cancellationKeepsTheSlotOccupiedUntilCompletion() async throws {
-        let controller = GenerationTaskController()
-        let task = Task<String, Error> { @MainActor in
+        let controller = GenerationTaskController<String>()
+        let task = Task<String, Never> { @MainActor in
             while !Task.isCancelled {
                 await Task.yield()
             }
@@ -40,7 +40,12 @@ struct GenerationTaskControllerTests {
         }
 
         _ = try controller.begin(task)
-        controller.cancel()
+        controller.cancel(reason: .stopped)
+
+        try expectGenerationTaskController(
+            controller.cancellationReason == .stopped,
+            "the turn must retain its public cancellation reason"
+        )
 
         try expectGenerationTaskController(
             controller.isActive,
@@ -56,7 +61,7 @@ struct GenerationTaskControllerTests {
             // Expected.
         }
 
-        await controller.cancelAndWait()
+        await controller.cancelAndWait(reason: .stopped)
         try expectGenerationTaskController(
             !controller.isActive,
             "the slot should clear after the cancelled task completes"
@@ -65,12 +70,12 @@ struct GenerationTaskControllerTests {
 
     @MainActor
     private static func staleCompletionCannotClearANewerTask() throws {
-        let controller = GenerationTaskController()
-        let firstTask = Task<String, Error> { "first" }
+        let controller = GenerationTaskController<String>()
+        let firstTask = Task<String, Never> { "first" }
         let firstID = try controller.begin(firstTask)
         controller.finish(id: firstID)
 
-        let secondTask = Task<String, Error> { "second" }
+        let secondTask = Task<String, Never> { "second" }
         let secondID = try controller.begin(secondTask)
         controller.finish(id: firstID)
 
