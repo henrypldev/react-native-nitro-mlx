@@ -404,6 +404,12 @@ private final class HybridLLMCore {
         var transcript: [Chat.Message]
         var pendingToolCallIds: [String]
         var needsRebuild: Bool
+        /// Running total of tokens already encoded in the warm KV cache: the
+        /// sum of prompt and completion tokens of every committed turn. An
+        /// estimate — exact only while no trimming has occurred (spec: open
+        /// question 4). Reset to 0 on a rebuild, whose fresh session re-encodes
+        /// the whole transcript.
+        var promptTokensSeen: Int
     }
 
     private var turnContexts = TurnContextRegistry<TurnContextEntry>()
@@ -1383,17 +1389,31 @@ private final class HybridLLMCore {
                 parameters: parameters,
                 transcript: history,
                 pendingToolCallIds: [],
-                needsRebuild: false
+                needsRebuild: false,
+                promptTokensSeen: 0
             )
         )
     }
 
     func releaseTurnContext(id: String) {
-        turnContexts.release(id)
+        guard let entry = turnContexts.release(id) else { return }
+        synchronizeReleasedSession(entry.session)
     }
 
     func releaseAllTurnContexts() {
-        _ = turnContexts.releaseAll()
+        for entry in turnContexts.releaseAll() {
+            synchronizeReleasedSession(entry.session)
+        }
+    }
+
+    /// The session must settle its KV cache before it is dropped, but the wire
+    /// release methods are synchronous and return void. The task holds the last
+    /// reference to the session, so the wait happens off the release call and
+    /// no async cache work outlives the reference.
+    private func synchronizeReleasedSession(_ session: ChatSession) {
+        Task { @MainActor in
+            await session.synchronize()
+        }
     }
 
     /// Everything a turn accumulates from one model pass. A reference type so
@@ -1437,12 +1457,6 @@ private final class HybridLLMCore {
         try ensureNotGenerating()
 
         let plan = try planTurn(for: request)
-        guard plan.mode == .cold else {
-            throw LLMError.generationFailed(
-                stage: GenerationStage.prepare.rawValue,
-                message: "warm turns land in the next commit"
-            )
-        }
         guard request.responseSchema == nil else {
             throw LLMError.generationFailed(
                 stage: GenerationStage.prepare.rawValue,
@@ -1450,15 +1464,40 @@ private final class HybridLLMCore {
             )
         }
 
-        let parameters = buildGenerateParameters(from: request.generationConfig)
-        let session = ChatSession(
-            container,
-            instructions: request.instructions,
-            history: try chatMessagesFromTurnMessages(request.history ?? []),
-            generateParameters: parameters,
-            tools: try turnToolSpecs(from: request.tools ?? [])
-        )
+        // Mapped before the switch, because the warm branch mutates the
+        // registry and every rejection belongs in preflight.
         let inputMessages = try chatMessagesFromTurnMessages(request.messages)
+
+        let session: ChatSession
+        let warm: WarmTurnCommit?
+        switch plan.mode {
+        case .cold:
+            session = ChatSession(
+                container,
+                instructions: request.instructions,
+                history: try chatMessagesFromTurnMessages(request.history ?? []),
+                generateParameters: buildGenerateParameters(from: request.generationConfig),
+                tools: try turnToolSpecs(from: request.tools ?? [])
+            )
+            warm = nil
+        case .warm:
+            // The planner proved both of these; failing here would mean the
+            // context was released between planning and now.
+            guard let contextId = request.contextId,
+                let entry = turnContexts.entry(for: contextId)
+            else {
+                throw LLMError.generationFailed(
+                    stage: GenerationStage.prepare.rawValue,
+                    message: "unknown Turn Context \(request.contextId ?? "")"
+                )
+            }
+            let prepared = rebuiltIfNeeded(entry, id: contextId, container: container)
+            session = prepared.session
+            warm = WarmTurnCommit(
+                contextId: contextId,
+                cachedPromptTokens: prepared.promptTokensSeen
+            )
+        }
 
         let emitter = StreamEventEmitter(callback: onEvent)
         let batcher = TokenBatcher(
@@ -1469,10 +1508,11 @@ private final class HybridLLMCore {
         let sink = EventGenerationSink(emitter: emitter, batcher: batcher)
 
         let task = Task<LLMTurnOutcome, Never> { @MainActor in
-            await self.performColdTurn(
+            await self.performTurn(
                 session: session,
                 inputMessages: inputMessages,
-                sink: sink
+                sink: sink,
+                warm: warm
             )
         }
         let generationID = try generationTasks.begin(task)
@@ -1571,12 +1611,85 @@ private final class HybridLLMCore {
         }
     }
 
-    /// One model pass over a throwaway session. Never throws: a started turn
-    /// reports cancellation and failure as an outcome.
-    private func performColdTurn(
+    /// What a warm turn commits against its Turn Context when the pass ends.
+    /// Captured before the pass, so releasing the context mid-turn changes the
+    /// bookkeeping but never what the outcome reports.
+    private struct WarmTurnCommit {
+        let contextId: String
+        /// `promptTokensSeen` as of the turn's start — what the KV cache
+        /// already held, reported as the outcome's `cachedPromptTokens`.
+        let cachedPromptTokens: Int
+    }
+
+    /// A turn that did not commit left the session's KV cache holding a prompt
+    /// the transcript never recorded, so the next turn generates from a fresh
+    /// session built out of the mirror. The rebuilt session has encoded
+    /// nothing yet, hence `promptTokensSeen` returns to zero.
+    private func rebuiltIfNeeded(
+        _ entry: TurnContextEntry,
+        id: String,
+        container: ModelContainer
+    ) -> TurnContextEntry {
+        guard entry.needsRebuild else { return entry }
+
+        var rebuilt = entry
+        rebuilt.session = ChatSession(
+            container,
+            instructions: entry.instructions,
+            history: entry.transcript,
+            generateParameters: entry.parameters,
+            tools: entry.toolSpecs.isEmpty ? nil : entry.toolSpecs
+        )
+        rebuilt.needsRebuild = false
+        rebuilt.promptTokensSeen = 0
+        turnContexts.update(id, with: rebuilt)
+        return rebuilt
+    }
+
+    /// Mirrors what the session appended, so a rebuild and countTokens see the
+    /// transcript the KV cache encodes. A context released mid-turn is not
+    /// resurrected: `update` ignores unknown ids.
+    private func commitWarmTurn(
+        _ warm: WarmTurnCommit,
+        inputMessages: [Chat.Message],
+        content: String,
+        accumulation: TurnAccumulation
+    ) {
+        guard var entry = turnContexts.entry(for: warm.contextId) else { return }
+
+        entry.transcript.append(contentsOf: inputMessages)
+        if !content.isEmpty || !accumulation.toolCalls.isEmpty {
+            entry.transcript.append(
+                .assistant(
+                    content,
+                    toolCalls: accumulation.toolCalls.isEmpty ? nil : accumulation.toolCalls
+                )
+            )
+        }
+        // The same array the outcome carries, so a caller can only answer ids
+        // it was actually given (Task 9: ids are minted once, at registration).
+        entry.pendingToolCallIds = accumulation.wireToolCalls.map(\.id)
+        entry.promptTokensSeen += accumulation.promptTokens + accumulation.completionTokens
+        turnContexts.update(warm.contextId, with: entry)
+    }
+
+    /// Leaves `transcript` and `pendingToolCallIds` as they were before the
+    /// turn: nothing was committed, so the caller owes no tool results and the
+    /// partial content is not part of the conversation.
+    private func markWarmTurnForRebuild(_ warm: WarmTurnCommit) {
+        guard var entry = turnContexts.entry(for: warm.contextId) else { return }
+        entry.needsRebuild = true
+        turnContexts.update(warm.contextId, with: entry)
+    }
+
+    /// One model pass, over a throwaway session (cold) or a Turn Context's
+    /// retained session (warm). Never throws: a started turn reports
+    /// cancellation and failure as an outcome.
+    private func performTurn(
         session: ChatSession,
         inputMessages: [Chat.Message],
-        sink: GenerationSink
+        sink: GenerationSink,
+        warm: WarmTurnCommit?
     ) async -> LLMTurnOutcome {
         let startTime = Date()
         let progress = GenerationProgress()
@@ -1598,8 +1711,10 @@ private final class HybridLLMCore {
                 usage: LLMTurnUsage(
                     promptTokens: Double(accumulation.promptTokens),
                     completionTokens: Double(accumulation.completionTokens),
-                    // Nothing is cached on a cold turn; warm turns fill this in.
-                    cachedPromptTokens: nil
+                    // A warm turn's promptTokens counts only the messages this
+                    // pass appended; this is what the cache already held.
+                    // Nothing is cached on a cold turn.
+                    cachedPromptTokens: warm.map { Double($0.cachedPromptTokens) }
                 ),
                 stats: makeStats(startTime: startTime, progress: progress),
                 error: error,
@@ -1616,6 +1731,15 @@ private final class HybridLLMCore {
                 into: accumulation
             )
 
+            if let warm {
+                commitWarmTurn(
+                    warm,
+                    inputMessages: inputMessages,
+                    content: progress.content,
+                    accumulation: accumulation
+                )
+            }
+
             if !accumulation.wireToolCalls.isEmpty {
                 return outcome(.toolCalls, toolCalls: accumulation.wireToolCalls)
             }
@@ -1624,6 +1748,7 @@ private final class HybridLLMCore {
             }
             return outcome(.completed)
         } catch is CancellationError {
+            if let warm { markWarmTurnForRebuild(warm) }
             // Tool calls parsed before the cancellation are dropped: the caller
             // must not answer requests no context is waiting for.
             switch generationTasks.cancellationReason ?? .stopped {
@@ -1635,6 +1760,9 @@ private final class HybridLLMCore {
                 return outcome(.unloaded, rawFinishReason: "unloaded")
             }
         } catch {
+            // Same reasoning as cancellation: nothing was committed, so the
+            // session's cache no longer matches the mirror.
+            if let warm { markWarmTurnForRebuild(warm) }
             return outcome(
                 .failed,
                 error: error.localizedDescription,
