@@ -212,6 +212,24 @@ describe('generation config validation', () => {
     ).toThrow(/minP/)
   })
 
+  it('rejects a null generationConfig', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: null,
+      }),
+    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
+  })
+
+  it('rejects a non-object generationConfig', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: 5,
+      }),
+    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
+  })
+
   it('accepts a valid generationConfig', () => {
     expect(() =>
       validateTurnRequest({
@@ -257,6 +275,18 @@ describe('validateTurnContextOptions generation config validation', () => {
     expect(() =>
       validateTurnContextOptions({ generationConfig: { minP: 1.1 } }),
     ).toThrow(/minP/)
+  })
+
+  it('rejects a null generationConfig', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: null }),
+    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
+  })
+
+  it('rejects a non-object generationConfig', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: 5 }),
+    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
   })
 
   it('accepts a valid generationConfig', () => {

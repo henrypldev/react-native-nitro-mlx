@@ -134,6 +134,8 @@ export function validateLLMLoadOptions(
     )
   }
 
+  validateGenerationConfig(validated.generationConfig, 'LLM load generationConfig')
+
   return {
     ...validated,
     tools: validated.tools ? validateToolDefinitions(validated.tools) : validated.tools,
@@ -480,6 +482,9 @@ export interface GenerationConfigLike {
 function validateGenerationConfig(config: unknown, name: string): void {
   if (config === undefined) {
     return
+  }
+  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+    throw new TypeError(`${ERROR_PREFIX} ${name} must be an object.`)
   }
   const { seed, topK, minP } = config as GenerationConfigLike
   if (seed !== undefined) {

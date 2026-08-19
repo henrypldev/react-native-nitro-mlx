@@ -546,6 +546,20 @@ private final class HybridLLMCore {
         return max(minimum, Int(value))
     }
 
+    /// `UInt64(Double)` traps on values that are non-finite, negative, or too
+    /// large to represent exactly — guard against all three before converting.
+    private func normalizedSeed(_ value: Double?) -> UInt64? {
+        guard let value,
+            value.isFinite,
+            value >= 0,
+            value.rounded() == value,
+            value <= 9_007_199_254_740_991 // 2^53, Double's exact-integer ceiling
+        else {
+            return nil
+        }
+        return UInt64(value)
+    }
+
     private func buildGenerateParameters(from config: LLMGenerationConfig?) -> GenerateParameters {
         GenerateParameters(
             maxTokens: normalizedInt(config?.maxTokens, minimum: 1),
@@ -560,7 +574,7 @@ private final class HybridLLMCore {
             repetitionPenalty: config?.repetitionPenalty.map(Float.init),
             repetitionContextSize: normalizedInt(config?.repetitionContextSize, minimum: 0) ?? 20,
             prefillStepSize: normalizedInt(config?.prefillStepSize, minimum: 1) ?? 512,
-            seed: config?.seed.flatMap { $0 >= 0 ? UInt64($0) : nil }
+            seed: normalizedSeed(config?.seed)
         )
     }
 
