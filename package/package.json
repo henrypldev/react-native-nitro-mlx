@@ -19,6 +19,7 @@
     "test:ios-embeddings-planner": "swiftc ios/Sources/EmbeddingsBatchPlanner.swift ios/Tests/EmbeddingsBatchPlannerTests.swift -o /tmp/EmbeddingsBatchPlannerTests && /tmp/EmbeddingsBatchPlannerTests",
     "test:ios-stt-audio": "swiftc ios/Sources/STTAudioContract.swift ios/Tests/STTAudioContractTests.swift -o /tmp/STTAudioContractTests && /tmp/STTAudioContractTests",
     "test:ios-load-plan": "swiftc ios/Sources/ModelLoadPlan.swift ios/Tests/ModelLoadPlanTests.swift -o /tmp/ModelLoadPlanTests && /tmp/ModelLoadPlanTests",
+    "test:ios-turn-registry": "swiftc ios/Sources/TurnContextRegistry.swift ios/Tests/TurnContextRegistryTests.swift -o /tmp/TurnContextRegistryTests && /tmp/TurnContextRegistryTests",
     "clean": "rm -rf android/build node_modules/**/android/build lib android/.cxx node_modules/**/android/.cxx",
     "release": "release-it",
     "specs": "bun typecheck && nitrogen --logLevel=\\\"debug\\\" && bun run build",
