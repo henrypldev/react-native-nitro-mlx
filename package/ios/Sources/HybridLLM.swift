@@ -716,9 +716,10 @@ private final class HybridLLMCore {
         return dictionaryToJson(resultDict)
     }
 
-    private func resetModelState() {
+    /// Resets everything `load()` reconfigures, but not model residency.
+    /// Shared by the full reset and the same-model reuse path.
+    private func resetTurnConfiguration() {
         session = nil
-        container = nil
         tools = []
         toolSchemas = []
         seedMessages = []
@@ -729,6 +730,11 @@ private final class HybridLLMCore {
         tokenBatchSize = 4
         toolExecution = .parallel
         contextConfig = nil
+    }
+
+    private func resetModelState() {
+        resetTurnConfiguration()
+        container = nil
         modelId = ""
         Memory.clearCache()
     }
@@ -761,35 +767,51 @@ private final class HybridLLMCore {
         let task = Task { @MainActor in
             await generationTasks.cancelAndWait(reason: .superseded)
             try Task.checkCancellation()
-            resetModelState()
 
-            let memoryAfterCleanup = getMemoryUsage()
-            let gpuAfterCleanup = getGPUMemoryUsage()
-            log("After cleanup - Host: \(memoryAfterCleanup), GPU: \(gpuAfterCleanup)")
-
-            if !(await ModelDownloader.shared.isDownloaded(modelId: modelId)) {
-                log("Model not cached, downloading before load: \(modelId)")
-                _ = try await ModelDownloader.shared.download(
-                    modelId: modelId,
-                    progressCallback: { fraction in
-                        options?.onProgress?(fraction)
-                    }
-                )
-            }
-
-            let modelDir = await ModelDownloader.shared.getModelDirectory(modelId: modelId)
-            log("Loading from directory: \(modelDir.path)")
-
-            let loadedContainer = try await modelFactory.loadContainer(
-                from: modelDir,
-                using: tokenizerLoader
+            let action = ModelLoadPlan.action(
+                requestedModelId: modelId,
+                loadedModelId: self.modelId,
+                hasContainer: container != nil
             )
 
-            try Task.checkCancellation()
+            let loadedContainer: ModelContainer
+            switch action {
+            case .reuseContainer:
+                log("Reusing resident container for \(modelId)")
+                resetTurnConfiguration()
+                options?.onProgress?(1.0)
+                loadedContainer = container!
+            case .loadContainer:
+                resetModelState()
 
-            let memoryAfterContainer = getMemoryUsage()
-            let gpuAfterContainer = getGPUMemoryUsage()
-            log("Model loaded - Host: \(memoryAfterContainer), GPU: \(gpuAfterContainer)")
+                let memoryAfterCleanup = getMemoryUsage()
+                let gpuAfterCleanup = getGPUMemoryUsage()
+                log("After cleanup - Host: \(memoryAfterCleanup), GPU: \(gpuAfterCleanup)")
+
+                if !(await ModelDownloader.shared.isDownloaded(modelId: modelId)) {
+                    log("Model not cached, downloading before load: \(modelId)")
+                    _ = try await ModelDownloader.shared.download(
+                        modelId: modelId,
+                        progressCallback: { fraction in
+                            options?.onProgress?(fraction)
+                        }
+                    )
+                }
+
+                let modelDir = await ModelDownloader.shared.getModelDirectory(modelId: modelId)
+                log("Loading from directory: \(modelDir.path)")
+
+                loadedContainer = try await modelFactory.loadContainer(
+                    from: modelDir,
+                    using: tokenizerLoader
+                )
+
+                try Task.checkCancellation()
+
+                let memoryAfterContainer = getMemoryUsage()
+                let gpuAfterContainer = getGPUMemoryUsage()
+                log("Model loaded - Host: \(memoryAfterContainer), GPU: \(gpuAfterContainer)")
+            }
 
             if let jsTools = options?.tools {
                 tools = jsTools
