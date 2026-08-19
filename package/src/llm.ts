@@ -210,6 +210,15 @@ export const LLM = {
     return getInstance().isLoaded
   },
 
+  /**
+   * The id of the Resident Model, or null when nothing is loaded.
+   * `load()` with this exact id performs no weight I/O.
+   */
+  get loadedModelId(): string | null {
+    const instance = getInstance()
+    return instance.isLoaded && instance.modelId !== '' ? instance.modelId : null
+  },
+
   /** Whether text is currently being generated */
   get isGenerating(): boolean {
     return getInstance().isGenerating
