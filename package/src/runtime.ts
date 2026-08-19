@@ -383,3 +383,166 @@ export function safeJsonParse<T>(value: string, fallback: T): T {
     return fallback
   }
 }
+
+const TURN_ROLES = new Set(['system', 'user', 'assistant', 'tool'])
+
+export interface TurnMessageLike {
+  role: string
+  content: string
+  toolCallId?: string
+  name?: string
+  isError?: boolean
+  toolCallsJson?: string
+}
+
+export function validateTurnMessages(
+  value: unknown,
+  name: string,
+  options: { requireNonEmpty?: boolean },
+): TurnMessageLike[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name} must be an array`)
+  }
+  if (options.requireNonEmpty && value.length === 0) {
+    throw new TypeError(`${name} must not be empty`)
+  }
+  return value.map((message, index) => {
+    const label = `${name}[${index}]`
+    const role = (message as TurnMessageLike)?.role
+    if (typeof role !== 'string' || !TURN_ROLES.has(role)) {
+      throw new TypeError(`${label} has unknown role: ${String(role)}`)
+    }
+    if (typeof (message as TurnMessageLike).content !== 'string') {
+      throw new TypeError(`${label}.content must be a string`)
+    }
+    const m = message as TurnMessageLike
+    if (role === 'tool' && (typeof m.toolCallId !== 'string' || m.toolCallId === '')) {
+      throw new TypeError(`${label} is a tool message and requires a non-empty toolCallId`)
+    }
+    if (m.toolCallsJson !== undefined && role !== 'assistant') {
+      throw new TypeError(`${label} carries tool calls but only assistant messages may`)
+    }
+    return m
+  })
+}
+
+export interface ToolSchemaLike {
+  name: string
+  description: string
+  parameters: string
+}
+
+export function validateToolSchemas(value: unknown, name: string): ToolSchemaLike[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name} must be an array`)
+  }
+  const seen = new Set<string>()
+  return value.map((tool, index) => {
+    const label = `${name}[${index}]`
+    const t = tool as ToolSchemaLike
+    assertNonEmptyString(t?.name, `${label}.name`)
+    assertNonEmptyString(t?.description, `${label}.description`)
+    assertNonEmptyString(t?.parameters, `${label}.parameters`)
+    if (seen.has(t.name)) {
+      throw new TypeError(`${name} contains a duplicate tool name: ${t.name}`)
+    }
+    seen.add(t.name)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(t.parameters)
+    } catch {
+      throw new TypeError(`${label}.parameters is not valid JSON`)
+    }
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      (parsed as { type?: unknown }).type !== 'object'
+    ) {
+      throw new TypeError(`${label}.parameters root must be an object schema ("type": "object")`)
+    }
+    return t
+  })
+}
+
+export interface TurnRequestLike {
+  messages: unknown
+  contextId?: string
+  instructions?: string
+  history?: unknown
+  tools?: unknown
+  generationConfig?: unknown
+  responseSchema?: string
+  tokenBatchSize?: number
+}
+
+export function validateTurnRequest(request: TurnRequestLike): void {
+  validateTurnMessages(request.messages, 'runTurn messages', { requireNonEmpty: true })
+  const hasTools = Array.isArray(request.tools) && request.tools.length > 0
+  if (request.responseSchema !== undefined) {
+    assertNonEmptyString(request.responseSchema, 'runTurn responseSchema')
+    validateToolSchemas(
+      [{ name: '__schema__', description: '-', parameters: request.responseSchema }],
+      'runTurn responseSchema',
+    )
+    if (hasTools) {
+      throw new TypeError('runTurn responseSchema is exclusive with tools')
+    }
+  }
+  if (request.contextId !== undefined) {
+    assertNonEmptyString(request.contextId, 'runTurn contextId')
+    if (
+      request.instructions !== undefined ||
+      request.history !== undefined ||
+      request.generationConfig !== undefined ||
+      hasTools
+    ) {
+      throw new TypeError(
+        'runTurn instructions, history, tools, and generationConfig are cold-turn fields; remove them or remove contextId',
+      )
+    }
+  }
+  if (hasTools) {
+    validateToolSchemas(request.tools, 'runTurn tools')
+  }
+  if (request.history !== undefined) {
+    validateTurnMessages(request.history, 'runTurn history', {})
+  }
+}
+
+export function validateTurnContextOptions(options: {
+  instructions?: string
+  history?: unknown
+  tools?: unknown
+}): void {
+  if (options.instructions !== undefined) {
+    assertNonEmptyString(options.instructions, 'createContext instructions')
+  }
+  if (options.history !== undefined) {
+    validateTurnMessages(options.history, 'createContext history', {})
+  }
+  if (options.tools !== undefined) {
+    validateToolSchemas(options.tools, 'createContext tools')
+  }
+}
+
+export function validateTokenCountRequest(request: {
+  contextId?: string
+  instructions?: string
+  history?: unknown
+  tools?: unknown
+  messages?: unknown
+}): void {
+  if (request.contextId !== undefined) {
+    assertNonEmptyString(request.contextId, 'countTokens contextId')
+  }
+  if (request.history !== undefined) {
+    validateTurnMessages(request.history, 'countTokens history', {})
+  }
+  if (request.messages !== undefined) {
+    validateTurnMessages(request.messages, 'countTokens messages', {})
+  }
+  if (request.tools !== undefined) {
+    validateToolSchemas(request.tools, 'countTokens tools')
+  }
+}
