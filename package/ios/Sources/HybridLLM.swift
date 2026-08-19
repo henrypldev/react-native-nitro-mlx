@@ -1866,11 +1866,40 @@ private final class HybridLLMCore {
         try Task.checkCancellation()
     }
 
+    /// Renders the same chat template `runTurn` would send and counts its
+    /// tokens. Uses `container.prepare(input:)` rather than a
+    /// `container.perform` closure: it only takes the container's mutex
+    /// long enough to read out the `UserInputProcessor` (see
+    /// `ModelContainer.prepare` upstream), so a `countTokens` call does not
+    /// serialize behind an in-flight `runTurn`'s prefill/decode — both may
+    /// run concurrently. Mirrors the pattern already used by
+    /// `trimManagedHistoryIfNeeded` above.
     func countTokens(request: LLMTokenCountRequest) async throws -> Double {
-        throw LLMError.generationFailed(
-            stage: GenerationStage.prepare.rawValue,
-            message: "countTokens not implemented yet"
-        )
+        guard let container else { throw LLMError.notLoaded }
+
+        var chat: [Chat.Message] = []
+        var toolSpecs: [ToolSpec]?
+
+        if let contextId = request.contextId {
+            guard let entry = turnContexts.entry(for: contextId) else {
+                throw LLMError.generationFailed(
+                    stage: GenerationStage.prepare.rawValue,
+                    message: "Unknown context \(contextId)"
+                )
+            }
+            if let instructions = entry.instructions { chat.append(.system(instructions)) }
+            chat.append(contentsOf: entry.transcript)
+            toolSpecs = entry.toolSpecs.isEmpty ? nil : entry.toolSpecs
+        } else {
+            if let instructions = request.instructions { chat.append(.system(instructions)) }
+            chat.append(contentsOf: try chatMessagesFromTurnMessages(request.history ?? []))
+            toolSpecs = try turnToolSpecs(from: request.tools ?? [])
+        }
+        chat.append(contentsOf: try chatMessagesFromTurnMessages(request.messages ?? []))
+
+        let input = UserInput(chat: chat, tools: toolSpecs)
+        let prepared = try await container.prepare(input: input)
+        return Double(prepared.text.tokens.size)
     }
 
     private func toolSpec(from tool: LLMToolSchema) throws -> ToolSpec {
