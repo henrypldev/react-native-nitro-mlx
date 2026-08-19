@@ -27,9 +27,12 @@ describe('LLM.loadedModelId', () => {
   })
 })
 
-const { validateTurnMessages, validateToolSchemas, validateTurnRequest } = await import(
-  './runtime'
-)
+const {
+  validateTurnMessages,
+  validateToolSchemas,
+  validateTurnRequest,
+  validateTurnContextOptions,
+} = await import('./runtime')
 
 describe('validateTurnMessages', () => {
   it('rejects an empty array when required', () => {
@@ -151,6 +154,117 @@ describe('validateTurnRequest', () => {
 
   it('accepts a minimal cold request', () => {
     expect(() => validateTurnRequest({ messages: user })).not.toThrow()
+  })
+})
+
+describe('generation config validation', () => {
+  it('rejects a negative seed', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { seed: -1 },
+      }),
+    ).toThrow(/seed/)
+  })
+
+  it('rejects a fractional seed', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { seed: 1.5 },
+      }),
+    ).toThrow(/seed/)
+  })
+
+  it('rejects a negative topK', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { topK: -1 },
+      }),
+    ).toThrow(/topK/)
+  })
+
+  it('rejects a fractional topK', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { topK: 2.5 },
+      }),
+    ).toThrow(/topK/)
+  })
+
+  it('rejects a minP below 0', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { minP: -0.1 },
+      }),
+    ).toThrow(/minP/)
+  })
+
+  it('rejects a minP above 1', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { minP: 1.1 },
+      }),
+    ).toThrow(/minP/)
+  })
+
+  it('accepts a valid generationConfig', () => {
+    expect(() =>
+      validateTurnRequest({
+        messages: [{ role: 'user', content: 'x' }],
+        generationConfig: { seed: 42, topK: 40, minP: 0.05 },
+      }),
+    ).not.toThrow()
+  })
+})
+
+describe('validateTurnContextOptions generation config validation', () => {
+  it('rejects a negative seed', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { seed: -1 } }),
+    ).toThrow(/seed/)
+  })
+
+  it('rejects a fractional seed', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { seed: 1.5 } }),
+    ).toThrow(/seed/)
+  })
+
+  it('rejects a negative topK', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { topK: -1 } }),
+    ).toThrow(/topK/)
+  })
+
+  it('rejects a fractional topK', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { topK: 2.5 } }),
+    ).toThrow(/topK/)
+  })
+
+  it('rejects a minP below 0', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { minP: -0.1 } }),
+    ).toThrow(/minP/)
+  })
+
+  it('rejects a minP above 1', () => {
+    expect(() =>
+      validateTurnContextOptions({ generationConfig: { minP: 1.1 } }),
+    ).toThrow(/minP/)
+  })
+
+  it('accepts a valid generationConfig', () => {
+    expect(() =>
+      validateTurnContextOptions({
+        generationConfig: { seed: 42, topK: 40, minP: 0.05 },
+      }),
+    ).not.toThrow()
   })
 })
 

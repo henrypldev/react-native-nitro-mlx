@@ -555,9 +555,12 @@ private final class HybridLLMCore {
             quantizedKVStart: normalizedInt(config?.quantizedKVStart, minimum: 0) ?? 0,
             temperature: Float(config?.temperature ?? 0.6),
             topP: Float(config?.topP ?? 1.0),
+            topK: normalizedInt(config?.topK, minimum: 0) ?? 0,
+            minP: Float(config?.minP ?? 0.0),
             repetitionPenalty: config?.repetitionPenalty.map(Float.init),
             repetitionContextSize: normalizedInt(config?.repetitionContextSize, minimum: 0) ?? 20,
-            prefillStepSize: normalizedInt(config?.prefillStepSize, minimum: 1) ?? 512
+            prefillStepSize: normalizedInt(config?.prefillStepSize, minimum: 1) ?? 512,
+            seed: config?.seed.flatMap { $0 >= 0 ? UInt64($0) : nil }
         )
     }
 

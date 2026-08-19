@@ -471,6 +471,36 @@ export function validateToolSchemas(value: unknown, name: string): ToolSchemaLik
   })
 }
 
+export interface GenerationConfigLike {
+  seed?: unknown
+  topK?: unknown
+  minP?: unknown
+}
+
+function validateGenerationConfig(config: unknown, name: string): void {
+  if (config === undefined) {
+    return
+  }
+  const { seed, topK, minP } = config as GenerationConfigLike
+  if (seed !== undefined) {
+    if (typeof seed !== 'number' || !Number.isSafeInteger(seed) || seed < 0) {
+      throw new TypeError(
+        `${ERROR_PREFIX} ${name}.seed must be a non-negative safe integer.`,
+      )
+    }
+  }
+  if (topK !== undefined) {
+    if (typeof topK !== 'number' || !Number.isInteger(topK) || topK < 0) {
+      throw new TypeError(`${ERROR_PREFIX} ${name}.topK must be a non-negative integer.`)
+    }
+  }
+  if (minP !== undefined) {
+    if (typeof minP !== 'number' || !Number.isFinite(minP) || minP < 0 || minP > 1) {
+      throw new TypeError(`${ERROR_PREFIX} ${name}.minP must be between 0 and 1.`)
+    }
+  }
+}
+
 export interface TurnRequestLike {
   messages: unknown
   contextId?: string
@@ -514,12 +544,14 @@ export function validateTurnRequest(request: TurnRequestLike): void {
   if (request.history !== undefined) {
     validateTurnMessages(request.history, 'runTurn history', {})
   }
+  validateGenerationConfig(request.generationConfig, 'runTurn generationConfig')
 }
 
 export function validateTurnContextOptions(options: {
   instructions?: string
   history?: unknown
   tools?: unknown
+  generationConfig?: unknown
 }): void {
   if (options.instructions !== undefined) {
     assertNonEmptyString(options.instructions, 'createContext instructions')
@@ -530,6 +562,7 @@ export function validateTurnContextOptions(options: {
   if (options.tools !== undefined) {
     validateToolSchemas(options.tools, 'createContext tools')
   }
+  validateGenerationConfig(options.generationConfig, 'createContext generationConfig')
 }
 
 export function validateTokenCountRequest(request: {
