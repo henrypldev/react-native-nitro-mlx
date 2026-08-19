@@ -691,7 +691,7 @@ export default function ChatScreen() {
           ]}
         >
           <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.benchmarkLink} onPress={openBenchmark}>
+            <TouchableOpacity style={styles.benchmarkLink} onPress={openSettings}>
               <Text style={[styles.headerButton, { color: '#007AFF' }]}>Benchmark</Text>
             </TouchableOpacity>
             <Text numberOfLines={1} style={[styles.headerTitle, { color: textColor }]}>
@@ -707,6 +707,9 @@ export default function ChatScreen() {
           >
             <TouchableOpacity style={styles.historyButton} onPress={logHistory}>
               <Text style={styles.historyButtonText}>Log</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.historyButton} onPress={openBenchmark}>
+              <Text style={styles.historyButtonText}>Baseline</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
