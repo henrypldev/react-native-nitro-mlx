@@ -1397,20 +1397,19 @@ private final class HybridLLMCore {
 
     func releaseTurnContext(id: String) {
         guard let entry = turnContexts.release(id) else { return }
-        synchronizeReleasedSession(entry.session)
+        synchronizeDroppedSession(entry.session)
     }
 
     func releaseAllTurnContexts() {
         for entry in turnContexts.releaseAll() {
-            synchronizeReleasedSession(entry.session)
+            synchronizeDroppedSession(entry.session)
         }
     }
 
-    /// The session must settle its KV cache before it is dropped, but the wire
-    /// release methods are synchronous and return void. The task holds the last
-    /// reference to the session, so the wait happens off the release call and
-    /// no async cache work outlives the reference.
-    private func synchronizeReleasedSession(_ session: ChatSession) {
+    /// The session must settle its KV cache before it is dropped, but the paths
+    /// that drop one are synchronous. The task holds the last reference, so the
+    /// wait happens off the call and no async cache work outlives the reference.
+    private func synchronizeDroppedSession(_ session: ChatSession) {
         Task { @MainActor in
             await session.synchronize()
         }
@@ -1430,6 +1429,18 @@ private final class HybridLLMCore {
         var promptTokens = 0
         var completionTokens = 0
         var stopReason: GenerateStopReason?
+
+        /// The calls carrying the ids the caller was given: the model may omit
+        /// an id, in which case the wire form holds a minted one. A transcript
+        /// mirroring the raw calls would render assistant tool calls with no id
+        /// beside tool results carrying one, which pairing templates cannot
+        /// resolve. `toolCalls` and `wireToolCalls` grow in lockstep, one
+        /// append each per `.toolCall` element.
+        var identifiedToolCalls: [ToolCall] {
+            zip(toolCalls, wireToolCalls).map { call, wire in
+                ToolCall(function: call.function, id: wire.id)
+            }
+        }
 
         /// Upstream sets `.length` exactly when the iterator hit its token
         /// limit (Evaluate.swift:1891-1897) and always reports a stop reason on
@@ -1632,6 +1643,10 @@ private final class HybridLLMCore {
     ) -> TurnContextEntry {
         guard entry.needsRebuild else { return entry }
 
+        // The likeliest drop point for a session with in-flight cache work:
+        // `needsRebuild` is set by a cancelled or failed turn.
+        synchronizeDroppedSession(entry.session)
+
         var rebuilt = entry
         rebuilt.session = ChatSession(
             container,
@@ -1658,12 +1673,10 @@ private final class HybridLLMCore {
         guard var entry = turnContexts.entry(for: warm.contextId) else { return }
 
         entry.transcript.append(contentsOf: inputMessages)
-        if !content.isEmpty || !accumulation.toolCalls.isEmpty {
+        let toolCalls = accumulation.identifiedToolCalls
+        if !content.isEmpty || !toolCalls.isEmpty {
             entry.transcript.append(
-                .assistant(
-                    content,
-                    toolCalls: accumulation.toolCalls.isEmpty ? nil : accumulation.toolCalls
-                )
+                .assistant(content, toolCalls: toolCalls.isEmpty ? nil : toolCalls)
             )
         }
         // The same array the outcome carries, so a caller can only answer ids
