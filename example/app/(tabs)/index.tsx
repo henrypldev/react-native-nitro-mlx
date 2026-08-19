@@ -264,6 +264,10 @@ export default function ChatScreen() {
     router.push('/settings-modal')
   }
 
+  const openBenchmark = () => {
+    router.push('/benchmark')
+  }
+
   const checkDownloaded = useCallback(async () => {
     setIsChecking(true)
     try {
@@ -687,7 +691,7 @@ export default function ChatScreen() {
           ]}
         >
           <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.benchmarkLink} onPress={openSettings}>
+            <TouchableOpacity style={styles.benchmarkLink} onPress={openBenchmark}>
               <Text style={[styles.headerButton, { color: '#007AFF' }]}>Benchmark</Text>
             </TouchableOpacity>
             <Text numberOfLines={1} style={[styles.headerTitle, { color: textColor }]}>
