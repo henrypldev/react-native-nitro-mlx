@@ -14,6 +14,7 @@ namespace margelo::nitro::mlxreactnative {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
+      prototype.registerHybridGetter("turnContextIds", &HybridLLMSpec::getTurnContextIds);
       prototype.registerHybridGetter("isLoaded", &HybridLLMSpec::getIsLoaded);
       prototype.registerHybridGetter("isGenerating", &HybridLLMSpec::getIsGenerating);
       prototype.registerHybridGetter("modelId", &HybridLLMSpec::getModelId);
@@ -25,6 +26,11 @@ namespace margelo::nitro::mlxreactnative {
       prototype.registerHybridMethod("generate", &HybridLLMSpec::generate);
       prototype.registerHybridMethod("stream", &HybridLLMSpec::stream);
       prototype.registerHybridMethod("streamWithEvents", &HybridLLMSpec::streamWithEvents);
+      prototype.registerHybridMethod("createTurnContext", &HybridLLMSpec::createTurnContext);
+      prototype.registerHybridMethod("releaseTurnContext", &HybridLLMSpec::releaseTurnContext);
+      prototype.registerHybridMethod("releaseAllTurnContexts", &HybridLLMSpec::releaseAllTurnContexts);
+      prototype.registerHybridMethod("runTurn", &HybridLLMSpec::runTurn);
+      prototype.registerHybridMethod("countTokens", &HybridLLMSpec::countTokens);
       prototype.registerHybridMethod("stop", &HybridLLMSpec::stop);
       prototype.registerHybridMethod("unload", &HybridLLMSpec::unload);
       prototype.registerHybridMethod("getHistory", &HybridLLMSpec::getHistory);

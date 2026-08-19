@@ -38,8 +38,22 @@ namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `LLMToolCallWire` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolCallWire; }
 // Forward declaration of `LLMToolExecution` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
+// Forward declaration of `LLMToolSchema` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolSchema; }
+// Forward declaration of `LLMTurnContextOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnContextOptions; }
+// Forward declaration of `LLMTurnFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMTurnFinishReason; }
+// Forward declaration of `LLMTurnMessage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnMessage; }
+// Forward declaration of `LLMTurnOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnOutcome; }
+// Forward declaration of `LLMTurnUsage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnUsage; }
 // Forward declaration of `STTListeningOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
@@ -86,7 +100,14 @@ namespace MLXReactNative { class HybridTTSSpec_cxx; }
 #include "LLMGenerationOutcome.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "LLMToolCallWire.hpp"
 #include "LLMToolExecution.hpp"
+#include "LLMToolSchema.hpp"
+#include "LLMTurnContextOptions.hpp"
+#include "LLMTurnFinishReason.hpp"
+#include "LLMTurnMessage.hpp"
+#include "LLMTurnOutcome.hpp"
+#include "LLMTurnUsage.hpp"
 #include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
 #include "STTTranscribeOptions.hpp"
@@ -765,6 +786,142 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return Func_void_StreamEventEnvelope_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::shared_ptr<Promise<std::string>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
+   */
+  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
+  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
+    return Promise<std::string>::create();
+  }
+  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
+    return PromiseHolder<std::string>(std::move(promise));
+  }
+  
+  // pragma MARK: std::vector<LLMTurnMessage>
+  /**
+   * Specialized version of `std::vector<LLMTurnMessage>`.
+   */
+  using std__vector_LLMTurnMessage_ = std::vector<LLMTurnMessage>;
+  inline std::vector<LLMTurnMessage> create_std__vector_LLMTurnMessage_(size_t size) noexcept {
+    std::vector<LLMTurnMessage> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::optional<std::vector<LLMTurnMessage>>
+  /**
+   * Specialized version of `std::optional<std::vector<LLMTurnMessage>>`.
+   */
+  using std__optional_std__vector_LLMTurnMessage__ = std::optional<std::vector<LLMTurnMessage>>;
+  inline std::optional<std::vector<LLMTurnMessage>> create_std__optional_std__vector_LLMTurnMessage__(const std::vector<LLMTurnMessage>& value) noexcept {
+    return std::optional<std::vector<LLMTurnMessage>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_LLMTurnMessage__(const std::optional<std::vector<LLMTurnMessage>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<LLMTurnMessage> get_std__optional_std__vector_LLMTurnMessage__(const std::optional<std::vector<LLMTurnMessage>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<LLMToolSchema>
+  /**
+   * Specialized version of `std::vector<LLMToolSchema>`.
+   */
+  using std__vector_LLMToolSchema_ = std::vector<LLMToolSchema>;
+  inline std::vector<LLMToolSchema> create_std__vector_LLMToolSchema_(size_t size) noexcept {
+    std::vector<LLMToolSchema> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::optional<std::vector<LLMToolSchema>>
+  /**
+   * Specialized version of `std::optional<std::vector<LLMToolSchema>>`.
+   */
+  using std__optional_std__vector_LLMToolSchema__ = std::optional<std::vector<LLMToolSchema>>;
+  inline std::optional<std::vector<LLMToolSchema>> create_std__optional_std__vector_LLMToolSchema__(const std::vector<LLMToolSchema>& value) noexcept {
+    return std::optional<std::vector<LLMToolSchema>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_LLMToolSchema__(const std::optional<std::vector<LLMToolSchema>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<LLMToolSchema> get_std__optional_std__vector_LLMToolSchema__(const std::optional<std::vector<LLMToolSchema>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<LLMTurnContextOptions>
+  /**
+   * Specialized version of `std::optional<LLMTurnContextOptions>`.
+   */
+  using std__optional_LLMTurnContextOptions_ = std::optional<LLMTurnContextOptions>;
+  inline std::optional<LLMTurnContextOptions> create_std__optional_LLMTurnContextOptions_(const LLMTurnContextOptions& value) noexcept {
+    return std::optional<LLMTurnContextOptions>(value);
+  }
+  inline bool has_value_std__optional_LLMTurnContextOptions_(const std::optional<LLMTurnContextOptions>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline LLMTurnContextOptions get_std__optional_LLMTurnContextOptions_(const std::optional<LLMTurnContextOptions>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<LLMToolCallWire>
+  /**
+   * Specialized version of `std::vector<LLMToolCallWire>`.
+   */
+  using std__vector_LLMToolCallWire_ = std::vector<LLMToolCallWire>;
+  inline std::vector<LLMToolCallWire> create_std__vector_LLMToolCallWire_(size_t size) noexcept {
+    std::vector<LLMToolCallWire> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<LLMTurnOutcome>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<LLMTurnOutcome>>`.
+   */
+  using std__shared_ptr_Promise_LLMTurnOutcome__ = std::shared_ptr<Promise<LLMTurnOutcome>>;
+  inline std::shared_ptr<Promise<LLMTurnOutcome>> create_std__shared_ptr_Promise_LLMTurnOutcome__() noexcept {
+    return Promise<LLMTurnOutcome>::create();
+  }
+  inline PromiseHolder<LLMTurnOutcome> wrap_std__shared_ptr_Promise_LLMTurnOutcome__(std::shared_ptr<Promise<LLMTurnOutcome>> promise) noexcept {
+    return PromiseHolder<LLMTurnOutcome>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const LLMTurnOutcome& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const LLMTurnOutcome&)>`.
+   */
+  using Func_void_LLMTurnOutcome = std::function<void(const LLMTurnOutcome& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const LLMTurnOutcome& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_LLMTurnOutcome_Wrapper final {
+  public:
+    explicit Func_void_LLMTurnOutcome_Wrapper(std::function<void(const LLMTurnOutcome& /* result */)>&& func): _function(std::make_unique<std::function<void(const LLMTurnOutcome& /* result */)>>(std::move(func))) {}
+    inline void call(LLMTurnOutcome result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const LLMTurnOutcome& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_LLMTurnOutcome create_Func_void_LLMTurnOutcome(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_LLMTurnOutcome_Wrapper wrap_Func_void_LLMTurnOutcome(Func_void_LLMTurnOutcome value) noexcept {
+    return Func_void_LLMTurnOutcome_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<double>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<double>>`.
+   */
+  using std__shared_ptr_Promise_double__ = std::shared_ptr<Promise<double>>;
+  inline std::shared_ptr<Promise<double>> create_std__shared_ptr_Promise_double__() noexcept {
+    return Promise<double>::create();
+  }
+  inline PromiseHolder<double> wrap_std__shared_ptr_Promise_double__(std::shared_ptr<Promise<double>> promise) noexcept {
+    return PromiseHolder<double>(std::move(promise));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridLLMSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridLLMSpec>`.
@@ -786,6 +943,33 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     return Result<std::shared_ptr<Promise<LLMGenerationOutcome>>>::withError(error);
   }
   
+  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
+  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<LLMTurnOutcome>>>
+  using Result_std__shared_ptr_Promise_LLMTurnOutcome___ = Result<std::shared_ptr<Promise<LLMTurnOutcome>>>;
+  inline Result_std__shared_ptr_Promise_LLMTurnOutcome___ create_Result_std__shared_ptr_Promise_LLMTurnOutcome___(const std::shared_ptr<Promise<LLMTurnOutcome>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<LLMTurnOutcome>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_LLMTurnOutcome___ create_Result_std__shared_ptr_Promise_LLMTurnOutcome___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<LLMTurnOutcome>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<double>>>
+  using Result_std__shared_ptr_Promise_double___ = Result<std::shared_ptr<Promise<double>>>;
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::shared_ptr<Promise<double>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_double___ create_Result_std__shared_ptr_Promise_double___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<double>>>::withError(error);
+  }
+  
   // pragma MARK: Result<std::vector<LLMMessage>>
   using Result_std__vector_LLMMessage__ = Result<std::vector<LLMMessage>>;
   inline Result_std__vector_LLMMessage__ create_Result_std__vector_LLMMessage__(const std::vector<LLMMessage>& value) noexcept {
@@ -793,18 +977,6 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   }
   inline Result_std__vector_LLMMessage__ create_Result_std__vector_LLMMessage__(const std::exception_ptr& error) noexcept {
     return Result<std::vector<LLMMessage>>::withError(error);
-  }
-  
-  // pragma MARK: std::shared_ptr<Promise<std::string>>
-  /**
-   * Specialized version of `std::shared_ptr<Promise<std::string>>`.
-   */
-  using std__shared_ptr_Promise_std__string__ = std::shared_ptr<Promise<std::string>>;
-  inline std::shared_ptr<Promise<std::string>> create_std__shared_ptr_Promise_std__string__() noexcept {
-    return Promise<std::string>::create();
-  }
-  inline PromiseHolder<std::string> wrap_std__shared_ptr_Promise_std__string__(std::shared_ptr<Promise<std::string>> promise) noexcept {
-    return PromiseHolder<std::string>(std::move(promise));
   }
   
   // pragma MARK: std::shared_ptr<Promise<bool>>
@@ -886,15 +1058,6 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
   // pragma MARK: std::weak_ptr<HybridModelManagerSpec>
   using std__weak_ptr_HybridModelManagerSpec_ = std::weak_ptr<HybridModelManagerSpec>;
   inline std__weak_ptr_HybridModelManagerSpec_ weakify_std__shared_ptr_HybridModelManagerSpec_(const std::shared_ptr<HybridModelManagerSpec>& strong) noexcept { return strong; }
-  
-  // pragma MARK: Result<std::shared_ptr<Promise<std::string>>>
-  using Result_std__shared_ptr_Promise_std__string___ = Result<std::shared_ptr<Promise<std::string>>>;
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::shared_ptr<Promise<std::string>>& value) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withValue(value);
-  }
-  inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
-    return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
-  }
   
   // pragma MARK: Result<std::shared_ptr<Promise<bool>>>
   using Result_std__shared_ptr_Promise_bool___ = Result<std::shared_ptr<Promise<bool>>>;

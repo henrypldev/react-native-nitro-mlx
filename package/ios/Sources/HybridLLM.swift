@@ -81,6 +81,10 @@ class HybridLLM: HybridLLMSpec {
         MainActorSync.read { self.core.modelId }
     }
 
+    var turnContextIds: [String] {
+        MainActorSync.read { self.core.turnContextIds }
+    }
+
     var debug: Bool {
         get {
             MainActorSync.read { self.core.debug }
@@ -127,6 +131,35 @@ class HybridLLM: HybridLLMSpec {
     ) throws -> Promise<LLMGenerationOutcome> {
         Promise.async { [core] in
             try await core.streamWithEvents(prompt: prompt, onEvent: onEvent)
+        }
+    }
+
+    func createTurnContext(options: LLMTurnContextOptions?) throws -> Promise<String> {
+        Promise.async { [core] in
+            try await core.createTurnContext(options: options)
+        }
+    }
+
+    func releaseTurnContext(id: String) throws {
+        try MainActorSync.run { self.core.releaseTurnContext(id: id) }
+    }
+
+    func releaseAllTurnContexts() throws {
+        try MainActorSync.run { self.core.releaseAllTurnContexts() }
+    }
+
+    func runTurn(
+        request: LLMTurnRequest,
+        onEvent: @escaping (StreamEventEnvelope) -> Void
+    ) throws -> Promise<LLMTurnOutcome> {
+        Promise.async { [core] in
+            try await core.runTurn(request: request, onEvent: onEvent)
+        }
+    }
+
+    func countTokens(request: LLMTokenCountRequest) throws -> Promise<Double> {
+        Promise.async { [core] in
+            try await core.countTokens(request: request)
         }
     }
 
@@ -357,6 +390,23 @@ private final class HybridLLMCore {
             generationTimeMs += timeMs
         }
     }
+
+    /// One Turn Context: a retained ChatSession plus the bookkeeping the
+    /// session cannot expose. `transcript` mirrors the session's messages so
+    /// the context can be rebuilt after a cancelled turn and counted by
+    /// countTokens; `pendingToolCallIds` enforces the tool-result contract.
+    struct TurnContextEntry {
+        var session: ChatSession
+        let instructions: String?
+        let toolSpecs: [ToolSpec]
+        let toolNames: Set<String>
+        let parameters: GenerateParameters
+        var transcript: [Chat.Message]
+        var pendingToolCallIds: [String]
+        var needsRebuild: Bool
+    }
+
+    private var turnContexts = TurnContextRegistry<TurnContextEntry>()
 
     private var session: ChatSession?
     private let generationTasks = GenerationTaskController<LLMGenerationOutcome>()
@@ -733,6 +783,7 @@ private final class HybridLLMCore {
     }
 
     private func resetModelState() {
+        releaseAllTurnContexts()
         resetTurnConfiguration()
         container = nil
         modelId = ""
@@ -778,6 +829,7 @@ private final class HybridLLMCore {
             switch action {
             case .reuseContainer:
                 log("Reusing resident container for \(modelId)")
+                releaseAllTurnContexts()
                 resetTurnConfiguration()
                 options?.onProgress?(1.0)
                 loadedContainer = container!
@@ -1298,6 +1350,172 @@ private final class HybridLLMCore {
             }
         }
         return dict
+    }
+
+    var turnContextIds: [String] { turnContexts.ids }
+
+    func createTurnContext(options: LLMTurnContextOptions?) throws -> String {
+        guard let container else { throw LLMError.notLoaded }
+
+        var toolSpecs: [ToolSpec] = []
+        var toolNames: Set<String> = []
+        for tool in options?.tools ?? [] {
+            toolSpecs.append(try toolSpec(from: tool))
+            toolNames.insert(tool.name)
+        }
+
+        let history = try chatMessagesFromTurnMessages(options?.history ?? [])
+        let parameters = buildGenerateParameters(from: options?.generationConfig)
+        let session = ChatSession(
+            container,
+            instructions: options?.instructions,
+            history: history,
+            generateParameters: parameters,
+            tools: toolSpecs.isEmpty ? nil : toolSpecs
+        )
+
+        return turnContexts.insert(
+            TurnContextEntry(
+                session: session,
+                instructions: options?.instructions,
+                toolSpecs: toolSpecs,
+                toolNames: toolNames,
+                parameters: parameters,
+                transcript: history,
+                pendingToolCallIds: [],
+                needsRebuild: false
+            )
+        )
+    }
+
+    func releaseTurnContext(id: String) {
+        turnContexts.release(id)
+    }
+
+    func releaseAllTurnContexts() {
+        _ = turnContexts.releaseAll()
+    }
+
+    func runTurn(
+        request: LLMTurnRequest,
+        onEvent: @escaping (StreamEventEnvelope) -> Void
+    ) async throws -> LLMTurnOutcome {
+        throw LLMError.generationFailed(
+            stage: GenerationStage.prepare.rawValue,
+            message: "runTurn not implemented yet"
+        )
+    }
+
+    func countTokens(request: LLMTokenCountRequest) async throws -> Double {
+        throw LLMError.generationFailed(
+            stage: GenerationStage.prepare.rawValue,
+            message: "countTokens not implemented yet"
+        )
+    }
+
+    private func toolSpec(from tool: LLMToolSchema) throws -> ToolSpec {
+        let parameters = try ToolSchemaPlanner.parseParameters(tool.parameters)
+        let function: [String: any Sendable] = [
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": sendableJSON(jsonValue(from: parameters)),
+        ]
+        return ["type": "function", "function": function]
+    }
+
+    /// Maps wire turn messages to upstream chat messages. Assistant tool calls
+    /// ride in toolCallsJson as [{id, name, arguments}]; upstream renders them
+    /// model-agnostically via addToolMetadata (Chat.swift:137-158).
+    private func chatMessagesFromTurnMessages(
+        _ messages: [LLMTurnMessage]
+    ) throws -> [Chat.Message] {
+        try messages.map { message in
+            switch message.role {
+            case "system":
+                return .system(message.content)
+            case "user":
+                return .user(message.content)
+            case "assistant":
+                guard let json = message.toolCallsJson, !json.isEmpty else {
+                    return .assistant(message.content)
+                }
+                return .assistant(message.content, toolCalls: try parseWireToolCalls(json))
+            case "tool":
+                return .tool(message.content, id: message.toolCallId)
+            default:
+                throw LLMError.generationFailed(
+                    stage: GenerationStage.prepare.rawValue,
+                    message: "Unknown role \(message.role)"
+                )
+            }
+        }
+    }
+
+    private func parseWireToolCalls(_ json: String) throws -> [ToolCall] {
+        guard let data = json.data(using: .utf8),
+            let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            throw LLMError.generationFailed(
+                stage: GenerationStage.prepare.rawValue,
+                message: "toolCallsJson is not valid JSON"
+            )
+        }
+        return array.map { entry in
+            ToolCall(
+                function: .init(
+                    name: entry["name"] as? String ?? "",
+                    arguments: (entry["arguments"] as? [String: Any] ?? [:])
+                        .mapValues { jsonValue(from: $0) }
+                ),
+                id: entry["id"] as? String
+            )
+        }
+    }
+
+    /// `JSONSerialization` erases Bool and Int to the same `NSNumber` class, so
+    /// `value as? Bool` also matches 0 and 1. The CoreFoundation type id is the
+    /// only reliable discriminator, which is why this does not reuse
+    /// `JSONValue.from(_:)`.
+    private func jsonValue(from value: Any) -> JSONValue {
+        switch value {
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return .bool(number.boolValue)
+            }
+            return CFNumberIsFloatType(number as CFNumber)
+                ? .double(number.doubleValue)
+                : .int(number.intValue)
+        case let string as String:
+            return .string(string)
+        case let array as [Any]:
+            return .array(array.map { jsonValue(from: $0) })
+        case let dictionary as [String: Any]:
+            return .object(dictionary.mapValues { jsonValue(from: $0) })
+        default:
+            return .null
+        }
+    }
+
+    /// Projects a parsed JSON value onto the `Sendable`-typed values `ToolSpec`
+    /// requires. Mirrors the upstream `JSONValue.sendableValue`, which is
+    /// module-internal.
+    private func sendableJSON(_ value: JSONValue) -> any Sendable {
+        switch value {
+        case .null:
+            return NSNull()
+        case .bool(let value):
+            return value
+        case .int(let value):
+            return value
+        case .double(let value):
+            return value
+        case .string(let value):
+            return value
+        case .array(let values):
+            return values.map { sendableJSON($0) }
+        case .object(let values):
+            return values.mapValues { sendableJSON($0) }
+        }
     }
 
     func stop() {

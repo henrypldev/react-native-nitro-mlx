@@ -121,6 +121,19 @@ open class HybridLLMSpec_cxx {
   }
 
   // Properties
+  public final var turnContextIds: bridge.std__vector_std__string_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__vector_std__string_ in
+        var __vector = bridge.create_std__vector_std__string_(self.__implementation.turnContextIds.count)
+        for __item in self.__implementation.turnContextIds {
+          __vector.push_back(std.string(__item))
+        }
+        return __vector
+      }()
+    }
+  }
+  
   public final var isLoaded: Bool {
     @inline(__always)
     get {
@@ -260,6 +273,90 @@ open class HybridLLMSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_std__shared_ptr_Promise_LLMGenerationOutcome___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func createTurnContext(options: bridge.std__optional_LLMTurnContextOptions_) -> bridge.Result_std__shared_ptr_Promise_std__string___ {
+    do {
+      let __result = try self.__implementation.createTurnContext(options: options.value)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__string__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__string__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__string__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve(std.string(__result)) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func releaseTurnContext(id: std.string) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.releaseTurnContext(id: String(id))
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func releaseAllTurnContexts() -> bridge.Result_void_ {
+    do {
+      try self.__implementation.releaseAllTurnContexts()
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func runTurn(request: LLMTurnRequest, onEvent: bridge.Func_void_StreamEventEnvelope) -> bridge.Result_std__shared_ptr_Promise_LLMTurnOutcome___ {
+    do {
+      let __result = try self.__implementation.runTurn(request: request, onEvent: { () -> (StreamEventEnvelope) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_StreamEventEnvelope(onEvent)
+        return { (__event: StreamEventEnvelope) -> Void in
+          __wrappedFunction.call(__event)
+        }
+      }())
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_LLMTurnOutcome__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_LLMTurnOutcome__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_LLMTurnOutcome__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve(__result) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_LLMTurnOutcome___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_LLMTurnOutcome___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func countTokens(request: LLMTokenCountRequest) -> bridge.Result_std__shared_ptr_Promise_double___ {
+    do {
+      let __result = try self.__implementation.countTokens(request: request)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_double__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_double__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_double__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve(__result) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_double___(__exceptionPtr)
     }
   }
   
