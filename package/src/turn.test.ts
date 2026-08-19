@@ -27,11 +27,9 @@ describe('LLM.loadedModelId', () => {
   })
 })
 
-const {
-  validateTurnMessages,
-  validateToolSchemas,
-  validateTurnRequest,
-} = await import('./runtime')
+const { validateTurnMessages, validateToolSchemas, validateTurnRequest } = await import(
+  './runtime'
+)
 
 describe('validateTurnMessages', () => {
   it('rejects an empty array when required', () => {
@@ -84,7 +82,10 @@ describe('validateTurnMessages', () => {
 describe('validateToolSchemas', () => {
   it('rejects parameters that are not JSON', () => {
     expect(() =>
-      validateToolSchemas([{ name: 'f', description: 'd', parameters: '{oops' }], 'tools'),
+      validateToolSchemas(
+        [{ name: 'f', description: 'd', parameters: '{oops' }],
+        'tools',
+      ),
     ).toThrow(/JSON/)
   })
 
@@ -130,7 +131,11 @@ describe('validateTurnRequest', () => {
 
   it('rejects cold-turn fields on a warm request', () => {
     expect(() =>
-      validateTurnRequest({ messages: user, contextId: 'ctx-1', instructions: 'be brief' }),
+      validateTurnRequest({
+        messages: user,
+        contextId: 'ctx-1',
+        instructions: 'be brief',
+      }),
     ).toThrow(/contextId/)
   })
 
@@ -146,5 +151,77 @@ describe('validateTurnRequest', () => {
 
   it('accepts a minimal cold request', () => {
     expect(() => validateTurnRequest({ messages: user })).not.toThrow()
+  })
+})
+
+const { toWireMessage, fromWireOutcome } = await import('./turn')
+
+describe('toWireMessage', () => {
+  it('serializes assistant tool calls to JSON', () => {
+    const wire = toWireMessage({
+      role: 'assistant',
+      content: 'calling',
+      toolCalls: [{ id: 'c1', name: 'f', arguments: { path: '/a' } }],
+    })
+    expect(wire.role).toBe('assistant')
+    expect(JSON.parse(wire.toolCallsJson ?? '')).toEqual([
+      { id: 'c1', name: 'f', arguments: { path: '/a' } },
+    ])
+  })
+
+  it('passes tool result fields through flat', () => {
+    const wire = toWireMessage({
+      role: 'tool',
+      toolCallId: 'c1',
+      name: 'f',
+      content: 'ok',
+      isError: true,
+    })
+    expect(wire).toEqual({
+      role: 'tool',
+      content: 'ok',
+      toolCallId: 'c1',
+      name: 'f',
+      isError: true,
+      toolCallsJson: undefined,
+    })
+  })
+})
+
+describe('fromWireOutcome', () => {
+  const base = {
+    finishReason: 'tool_calls' as const,
+    content: '',
+    toolCalls: [{ id: 'c1', name: 'f', argumentsJson: '{"path":"/a"}' }],
+    usage: { promptTokens: 10, completionTokens: 5 },
+    stats: {
+      tokenCount: 5,
+      tokensPerSecond: 1,
+      timeToFirstToken: 1,
+      totalTime: 1,
+      toolExecutionTime: 0,
+    },
+  }
+
+  it('parses tool call arguments to objects', () => {
+    const outcome = fromWireOutcome(base)
+    expect(outcome.toolCalls[0]?.arguments).toEqual({ path: '/a' })
+  })
+
+  it('degrades unparseable arguments to an empty object', () => {
+    const outcome = fromWireOutcome({
+      ...base,
+      toolCalls: [{ id: 'c1', name: 'f', argumentsJson: '{broken' }],
+    })
+    expect(outcome.toolCalls[0]?.arguments).toEqual({})
+  })
+})
+
+describe('LLM.runTurn', () => {
+  it('rejects an invalid request before touching native', async () => {
+    const { LLM } = await import('./llm')
+    await expect(LLM.runTurn({ messages: [] })).rejects.toThrow(
+      /messages must not be empty/,
+    )
   })
 })

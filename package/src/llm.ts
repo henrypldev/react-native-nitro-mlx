@@ -6,6 +6,9 @@ import {
   mapStreamEventEnvelope,
   safeJsonParse,
   validateLLMLoadOptions,
+  validateTokenCountRequest,
+  validateTurnContextOptions,
+  validateTurnRequest,
 } from './runtime'
 import type {
   LLMGenerationOutcome,
@@ -14,6 +17,19 @@ import type {
   StreamEvent,
   StreamEventEnvelope,
 } from './specs/LLM.nitro'
+import type {
+  LLMContext,
+  LLMContextOptions,
+  LLMTokenCountRequest,
+  LLMTurnOutcome,
+  LLMTurnRequest,
+} from './turn'
+import {
+  fromWireOutcome,
+  toWireContextOptions,
+  toWireRequest,
+  toWireTokenCountRequest,
+} from './turn'
 
 export type EventCallback = (event: StreamEvent) => void
 
@@ -203,6 +219,59 @@ export const LLM = {
    */
   clearHistory(): void {
     getInstance().clearHistory()
+  },
+
+  /**
+   * Run one LLM Generation Turn. Tool Call Requests come back to the caller;
+   * this package executes nothing. Branch your loop on toolCalls.length, not
+   * on finishReason.
+   */
+  async runTurn(
+    request: LLMTurnRequest,
+    onEvent?: (event: StreamEvent) => void,
+  ): Promise<LLMTurnOutcome> {
+    const wireRequest = toWireRequest(request)
+    validateTurnRequest(wireRequest)
+    const safeOnEvent = createSafeCallback('LLM.runTurn onEvent', onEvent)
+    const wireOutcome = await getInstance().runTurn(wireRequest, envelope => {
+      if (!safeOnEvent) return
+      const event = mapStreamEventEnvelope(envelope)
+      if (event) safeOnEvent(event)
+    })
+    return fromWireOutcome(wireOutcome)
+  },
+
+  /** Create a Turn Context: retained instructions, transcript, and warm KV cache over the Resident Model. Release it when done. */
+  async createContext(options: LLMContextOptions = {}): Promise<LLMContext> {
+    const wireOptions = toWireContextOptions(options)
+    validateTurnContextOptions(wireOptions)
+    const id = await getInstance().createTurnContext(wireOptions)
+    return {
+      id,
+      release: () => getInstance().releaseTurnContext(id),
+    }
+  },
+
+  /** Release a Turn Context. Idempotent. */
+  releaseContext(id: string): void {
+    getInstance().releaseTurnContext(assertNonEmptyString(id, 'LLM contextId'))
+  },
+
+  /** Release every Turn Context. */
+  releaseAllContexts(): void {
+    getInstance().releaseAllTurnContexts()
+  },
+
+  /** IDs of all live Turn Contexts. */
+  get contextIds(): string[] {
+    return getInstance().turnContextIds
+  },
+
+  /** Count tokens for an assembled prompt with the loaded tokenizer and chat template. */
+  countTokens(request: LLMTokenCountRequest): Promise<number> {
+    const wireRequest = toWireTokenCountRequest(request)
+    validateTokenCountRequest(wireRequest)
+    return getInstance().countTokens(wireRequest)
   },
 
   /** Whether a model is currently loaded and ready for generation */
