@@ -401,26 +401,30 @@ export function validateTurnMessages(
   options: { requireNonEmpty?: boolean },
 ): TurnMessageLike[] {
   if (!Array.isArray(value)) {
-    throw new TypeError(`${name} must be an array`)
+    throw new TypeError(`${ERROR_PREFIX} ${name} must be an array`)
   }
   if (options.requireNonEmpty && value.length === 0) {
-    throw new TypeError(`${name} must not be empty`)
+    throw new TypeError(`${ERROR_PREFIX} ${name} must not be empty`)
   }
   return value.map((message, index) => {
     const label = `${name}[${index}]`
     const role = (message as TurnMessageLike)?.role
     if (typeof role !== 'string' || !TURN_ROLES.has(role)) {
-      throw new TypeError(`${label} has unknown role: ${String(role)}`)
+      throw new TypeError(`${ERROR_PREFIX} ${label} has unknown role: ${String(role)}`)
     }
     if (typeof (message as TurnMessageLike).content !== 'string') {
-      throw new TypeError(`${label}.content must be a string`)
+      throw new TypeError(`${ERROR_PREFIX} ${label}.content must be a string`)
     }
     const m = message as TurnMessageLike
     if (role === 'tool' && (typeof m.toolCallId !== 'string' || m.toolCallId === '')) {
-      throw new TypeError(`${label} is a tool message and requires a non-empty toolCallId`)
+      throw new TypeError(
+        `${ERROR_PREFIX} ${label} is a tool message and requires a non-empty toolCallId`,
+      )
     }
     if (m.toolCallsJson !== undefined && role !== 'assistant') {
-      throw new TypeError(`${label} carries tool calls but only assistant messages may`)
+      throw new TypeError(
+        `${ERROR_PREFIX} ${label} carries tool calls but only assistant messages may`,
+      )
     }
     return m
   })
@@ -434,7 +438,7 @@ export interface ToolSchemaLike {
 
 export function validateToolSchemas(value: unknown, name: string): ToolSchemaLike[] {
   if (!Array.isArray(value)) {
-    throw new TypeError(`${name} must be an array`)
+    throw new TypeError(`${ERROR_PREFIX} ${name} must be an array`)
   }
   const seen = new Set<string>()
   return value.map((tool, index) => {
@@ -444,14 +448,14 @@ export function validateToolSchemas(value: unknown, name: string): ToolSchemaLik
     assertNonEmptyString(t?.description, `${label}.description`)
     assertNonEmptyString(t?.parameters, `${label}.parameters`)
     if (seen.has(t.name)) {
-      throw new TypeError(`${name} contains a duplicate tool name: ${t.name}`)
+      throw new TypeError(`${ERROR_PREFIX} ${name} contains a duplicate tool name: ${t.name}`)
     }
     seen.add(t.name)
     let parsed: unknown
     try {
       parsed = JSON.parse(t.parameters)
     } catch {
-      throw new TypeError(`${label}.parameters is not valid JSON`)
+      throw new TypeError(`${ERROR_PREFIX} ${label}.parameters is not valid JSON`)
     }
     if (
       typeof parsed !== 'object' ||
@@ -459,7 +463,9 @@ export function validateToolSchemas(value: unknown, name: string): ToolSchemaLik
       Array.isArray(parsed) ||
       (parsed as { type?: unknown }).type !== 'object'
     ) {
-      throw new TypeError(`${label}.parameters root must be an object schema ("type": "object")`)
+      throw new TypeError(
+        `${ERROR_PREFIX} ${label}.parameters root must be an object schema ("type": "object")`,
+      )
     }
     return t
   })
@@ -486,7 +492,7 @@ export function validateTurnRequest(request: TurnRequestLike): void {
       'runTurn responseSchema',
     )
     if (hasTools) {
-      throw new TypeError('runTurn responseSchema is exclusive with tools')
+      throw new TypeError(`${ERROR_PREFIX} runTurn responseSchema is exclusive with tools`)
     }
   }
   if (request.contextId !== undefined) {
@@ -498,7 +504,7 @@ export function validateTurnRequest(request: TurnRequestLike): void {
       hasTools
     ) {
       throw new TypeError(
-        'runTurn instructions, history, tools, and generationConfig are cold-turn fields; remove them or remove contextId',
+        `${ERROR_PREFIX} runTurn instructions, history, tools, and generationConfig are cold-turn fields; remove them or remove contextId`,
       )
     }
   }

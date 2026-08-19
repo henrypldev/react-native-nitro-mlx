@@ -116,6 +116,18 @@ describe('validateTurnRequest', () => {
     ).toThrow(/exclusive/)
   })
 
+  it('rejects a responseSchema that is not JSON', () => {
+    expect(() =>
+      validateTurnRequest({ messages: user, responseSchema: '{oops' }),
+    ).toThrow(/JSON/)
+  })
+
+  it('rejects a responseSchema with a non-object root', () => {
+    expect(() =>
+      validateTurnRequest({ messages: user, responseSchema: '{"type":"string"}' }),
+    ).toThrow(/object schema/)
+  })
+
   it('rejects cold-turn fields on a warm request', () => {
     expect(() =>
       validateTurnRequest({ messages: user, contextId: 'ctx-1', instructions: 'be brief' }),
