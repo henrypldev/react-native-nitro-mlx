@@ -1411,10 +1411,13 @@ private final class HybridLLMCore {
         var completionTokens = 0
         var stopReason: GenerateStopReason?
 
-        func stoppedAtLength(maxTokens: Int?) -> Bool {
+        /// Upstream sets `.length` exactly when the iterator hit its token
+        /// limit (Evaluate.swift:1891-1897) and always reports a stop reason on
+        /// a non-cancelled pass, so no token-count heuristic is needed — one
+        /// would mislabel a model that emits EOS on the last allowed token.
+        var stoppedAtLength: Bool {
             if case .some(.length) = stopReason { return true }
-            guard let maxTokens else { return false }
-            return completionTokens >= maxTokens
+            return false
         }
     }
 
@@ -1469,8 +1472,7 @@ private final class HybridLLMCore {
             await self.performColdTurn(
                 session: session,
                 inputMessages: inputMessages,
-                sink: sink,
-                parameters: parameters
+                sink: sink
             )
         }
         let generationID = try generationTasks.begin(task)
@@ -1574,8 +1576,7 @@ private final class HybridLLMCore {
     private func performColdTurn(
         session: ChatSession,
         inputMessages: [Chat.Message],
-        sink: GenerationSink,
-        parameters: GenerateParameters
+        sink: GenerationSink
     ) async -> LLMTurnOutcome {
         let startTime = Date()
         let progress = GenerationProgress()
@@ -1618,7 +1619,7 @@ private final class HybridLLMCore {
             if !accumulation.wireToolCalls.isEmpty {
                 return outcome(.toolCalls, toolCalls: accumulation.wireToolCalls)
             }
-            if accumulation.stoppedAtLength(maxTokens: parameters.maxTokens) {
+            if accumulation.stoppedAtLength {
                 return outcome(.length, rawFinishReason: "maxTokens")
             }
             return outcome(.completed)
@@ -1664,7 +1665,6 @@ private final class HybridLLMCore {
         }
 
         for try await generation in session.streamDetails(to: inputMessages) {
-            try Task.checkCancellation()
             switch generation {
             case .chunk(let text):
                 progress.recordContent(
@@ -1696,6 +1696,11 @@ private final class HybridLLMCore {
                     timeMs: info.generateTime * 1000
                 )
             }
+            // Checked after the element is folded, never before: upstream emits
+            // `.info` as the last element of a pass even when that pass was
+            // cancelled (Evaluate.swift:1905-1917), and a cancelled turn must
+            // still report the tokens it spent.
+            try Task.checkCancellation()
         }
 
         progress.recordContent(sink.finalizeStream(), firstTokenTime: sink.firstTokenTime)
