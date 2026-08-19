@@ -409,7 +409,7 @@ private final class HybridLLMCore {
     private var turnContexts = TurnContextRegistry<TurnContextEntry>()
 
     private var session: ChatSession?
-    private let generationTasks = GenerationTaskController<LLMGenerationOutcome>()
+    private let generationTasks = GenerationTaskController()
     private var container: ModelContainer?
     private var modelFactory: any ModelFactory = LLMModelFactory.shared
     private let tokenizerLoader: any TokenizerLoader = LocalTokenizerLoader()
@@ -1396,14 +1396,311 @@ private final class HybridLLMCore {
         _ = turnContexts.releaseAll()
     }
 
+    /// Everything a turn accumulates from one model pass. A reference type so
+    /// the cancellation path can still report the counts folded before the
+    /// stream was torn down, like `GenerationProgress`.
+    private final class TurnAccumulation {
+        /// The upstream calls, kept alongside their wire form because a warm
+        /// context mirrors them into its transcript as `.assistant(_:toolCalls:)`.
+        var toolCalls: [ToolCall] = []
+        /// Built as tool calls arrive, so these ids are the ids already emitted
+        /// on `tool_call_start`. Tool results are correlated against them, so
+        /// they must be computed exactly once.
+        var wireToolCalls: [LLMToolCallWire] = []
+        var promptTokens = 0
+        var completionTokens = 0
+        var stopReason: GenerateStopReason?
+
+        func stoppedAtLength(maxTokens: Int?) -> Bool {
+            if case .some(.length) = stopReason { return true }
+            guard let maxTokens else { return false }
+            return completionTokens >= maxTokens
+        }
+    }
+
+    /// Runs one Generation Turn. Tool Call Requests come back to the caller
+    /// instead of being executed here.
+    ///
+    /// Preflight rejects; a started turn always resolves with an outcome
+    /// (docs/adr/0001-generation-turn-outcomes.md), so every check that can
+    /// fail runs before `generationTasks.begin`.
     func runTurn(
         request: LLMTurnRequest,
         onEvent: @escaping (StreamEventEnvelope) -> Void
     ) async throws -> LLMTurnOutcome {
-        throw LLMError.generationFailed(
-            stage: GenerationStage.prepare.rawValue,
-            message: "runTurn not implemented yet"
+        guard acceptsGeneration, let container else {
+            throw LLMError.notLoaded
+        }
+        try ensureNotGenerating()
+
+        let plan = try planTurn(for: request)
+        guard plan.mode == .cold else {
+            throw LLMError.generationFailed(
+                stage: GenerationStage.prepare.rawValue,
+                message: "warm turns land in the next commit"
+            )
+        }
+        guard request.responseSchema == nil else {
+            throw LLMError.generationFailed(
+                stage: GenerationStage.prepare.rawValue,
+                message: "responseSchema turns land in a later commit"
+            )
+        }
+
+        let parameters = buildGenerateParameters(from: request.generationConfig)
+        let session = ChatSession(
+            container,
+            instructions: request.instructions,
+            history: try chatMessagesFromTurnMessages(request.history ?? []),
+            generateParameters: parameters,
+            tools: try turnToolSpecs(from: request.tools ?? [])
         )
+        let inputMessages = try chatMessagesFromTurnMessages(request.messages)
+
+        let emitter = StreamEventEmitter(callback: onEvent)
+        let batcher = TokenBatcher(
+            batchSize: normalizedInt(request.tokenBatchSize, minimum: 1) ?? tokenBatchSize
+        ) { token in
+            emitter.emitToken(token)
+        }
+        let sink = EventGenerationSink(emitter: emitter, batcher: batcher)
+
+        let task = Task<LLMTurnOutcome, Never> { @MainActor in
+            await self.performColdTurn(
+                session: session,
+                inputMessages: inputMessages,
+                sink: sink,
+                parameters: parameters
+            )
+        }
+        let generationID = try generationTasks.begin(task)
+        emitter.emitGenerationStart()
+        defer { finishGeneration(id: generationID) }
+        return await task.value
+    }
+
+    /// Validates the request and decides cold versus warm. Planner rejections
+    /// become readable `prepare`-stage failures.
+    private func planTurn(for request: LLMTurnRequest) throws -> TurnPlan {
+        let entry = request.contextId.flatMap { turnContexts.entry(for: $0) }
+        let requestHasTools = !(request.tools ?? []).isEmpty
+        do {
+            return try TurnRequestPlanner.plan(
+                messages: request.messages.map(turnMessagePlan),
+                contextId: request.contextId,
+                contextKnown: entry != nil,
+                contextHasTools: !(entry?.toolNames.isEmpty ?? true),
+                pendingToolCallIds: entry?.pendingToolCallIds ?? [],
+                hasColdFields: request.instructions != nil
+                    || request.history != nil
+                    || request.generationConfig != nil
+                    || requestHasTools,
+                requestHasTools: requestHasTools,
+                hasResponseSchema: request.responseSchema != nil
+            )
+        } catch let error as TurnPlanError {
+            throw LLMError.generationFailed(
+                stage: GenerationStage.prepare.rawValue,
+                message: planFailureMessage(error)
+            )
+        }
+    }
+
+    private func turnMessagePlan(_ message: LLMTurnMessage) -> TurnMessagePlan {
+        TurnMessagePlan(
+            role: message.role,
+            content: message.content,
+            toolCallId: message.toolCallId,
+            name: message.name,
+            isError: message.isError,
+            toolCallsJson: message.toolCallsJson
+        )
+    }
+
+    private func planFailureMessage(_ error: TurnPlanError) -> String {
+        switch error {
+        case .emptyMessages:
+            return "messages must not be empty"
+        case .unknownRole(let role):
+            return "unknown message role \(role)"
+        case .missingToolCallId:
+            return "tool messages need a toolCallId"
+        case .toolCallsOnNonAssistant:
+            return "only assistant messages may carry tool calls"
+        case .unknownContext(let id):
+            return "unknown Turn Context \(id)"
+        case .coldFieldsOnWarmTurn:
+            return
+                "instructions, history, tools, and generationConfig are cold-turn fields; "
+                + "remove them or remove contextId"
+        case .schemaExclusiveWithTools:
+            return "responseSchema is exclusive with tools"
+        case .incompleteToolResults(let missing):
+            return "missing tool results for \(missing.joined(separator: ", "))"
+        case .unknownToolCallId(let id):
+            return "tool result \(id) does not match a pending Tool Call Request"
+        case .duplicateToolCallId(let id):
+            return "duplicate tool result for \(id)"
+        }
+    }
+
+    /// nil rather than an empty array, because upstream treats an empty tool
+    /// list as "tools are in play" when it renders the chat template.
+    private func turnToolSpecs(from tools: [LLMToolSchema]) throws -> [ToolSpec]? {
+        guard !tools.isEmpty else { return nil }
+        return try tools.map { tool in
+            do {
+                return try toolSpec(from: tool)
+            } catch let error as ToolSchemaError {
+                throw LLMError.generationFailed(
+                    stage: GenerationStage.prepare.rawValue,
+                    message: "tool \(tool.name): \(toolSchemaFailureMessage(error))"
+                )
+            }
+        }
+    }
+
+    private func toolSchemaFailureMessage(_ error: ToolSchemaError) -> String {
+        switch error {
+        case .invalidJSON:
+            return "parameters is not valid JSON"
+        case .rootNotObjectSchema:
+            return "parameters must be a JSON Schema whose root type is object"
+        }
+    }
+
+    /// One model pass over a throwaway session. Never throws: a started turn
+    /// reports cancellation and failure as an outcome.
+    private func performColdTurn(
+        session: ChatSession,
+        inputMessages: [Chat.Message],
+        sink: GenerationSink,
+        parameters: GenerateParameters
+    ) async -> LLMTurnOutcome {
+        let startTime = Date()
+        let progress = GenerationProgress()
+        let accumulation = TurnAccumulation()
+
+        func outcome(
+            _ finishReason: LLMTurnFinishReason,
+            rawFinishReason: String? = nil,
+            toolCalls: [LLMToolCallWire] = [],
+            error: String? = nil,
+            stage: String? = nil
+        ) -> LLMTurnOutcome {
+            LLMTurnOutcome(
+                finishReason: finishReason,
+                rawFinishReason: rawFinishReason,
+                content: progress.content,
+                thinking: sink.thinkingContent.isEmpty ? nil : sink.thinkingContent,
+                toolCalls: toolCalls,
+                usage: LLMTurnUsage(
+                    promptTokens: Double(accumulation.promptTokens),
+                    completionTokens: Double(accumulation.completionTokens),
+                    // Nothing is cached on a cold turn; warm turns fill this in.
+                    cachedPromptTokens: nil
+                ),
+                stats: makeStats(startTime: startTime, progress: progress),
+                error: error,
+                stage: stage
+            )
+        }
+
+        do {
+            try await collectTurn(
+                session: session,
+                inputMessages: inputMessages,
+                sink: sink,
+                progress: progress,
+                into: accumulation
+            )
+
+            if !accumulation.wireToolCalls.isEmpty {
+                return outcome(.toolCalls, toolCalls: accumulation.wireToolCalls)
+            }
+            if accumulation.stoppedAtLength(maxTokens: parameters.maxTokens) {
+                return outcome(.length, rawFinishReason: "maxTokens")
+            }
+            return outcome(.completed)
+        } catch is CancellationError {
+            // Tool calls parsed before the cancellation are dropped: the caller
+            // must not answer requests no context is waiting for.
+            switch generationTasks.cancellationReason ?? .stopped {
+            case .stopped:
+                return outcome(.stopped, rawFinishReason: "stopped")
+            case .superseded:
+                return outcome(.superseded, rawFinishReason: "superseded")
+            case .unloaded:
+                return outcome(.unloaded, rawFinishReason: "unloaded")
+            }
+        } catch {
+            return outcome(
+                .failed,
+                error: error.localizedDescription,
+                stage: (error as? LLMError)?.failureStage
+                    ?? GenerationStage.generate.rawValue
+            )
+        }
+    }
+
+    /// Folds one `streamDetails` pass into `accumulation`, routing tokens
+    /// through the same sink legacy turns use so thinking tags, token batching,
+    /// and the `tool_call_start` envelope behave identically.
+    private func collectTurn(
+        session: ChatSession,
+        inputMessages: [Chat.Message],
+        sink: GenerationSink,
+        progress: GenerationProgress,
+        into accumulation: TurnAccumulation
+    ) async throws {
+        var didFinalize = false
+        defer {
+            if !didFinalize {
+                progress.recordContent(
+                    sink.finalizeStream(),
+                    firstTokenTime: sink.firstTokenTime
+                )
+            }
+        }
+
+        for try await generation in session.streamDetails(to: inputMessages) {
+            try Task.checkCancellation()
+            switch generation {
+            case .chunk(let text):
+                progress.recordContent(
+                    sink.ingest(chunk: text),
+                    firstTokenTime: sink.firstTokenTime
+                )
+            case .toolCall(let toolCall):
+                sink.flush()
+                let name = toolCall.function.name
+                let argumentsJson = dictionaryToJson(
+                    convertToolCallArguments(toolCall.function.arguments)
+                )
+                let id = sink.registerToolCall(
+                    name: name,
+                    arguments: argumentsJson,
+                    modelID: toolCall.id
+                )
+                accumulation.toolCalls.append(toolCall)
+                accumulation.wireToolCalls.append(
+                    LLMToolCallWire(id: id, name: name, argumentsJson: argumentsJson)
+                )
+            case .info(let info):
+                sink.flush()
+                accumulation.promptTokens += info.promptTokenCount
+                accumulation.completionTokens += info.generationTokenCount
+                accumulation.stopReason = info.stopReason
+                progress.recordGenerationInfo(
+                    tokens: info.generationTokenCount,
+                    timeMs: info.generateTime * 1000
+                )
+            }
+        }
+
+        progress.recordContent(sink.finalizeStream(), firstTokenTime: sink.firstTokenTime)
+        didFinalize = true
+        try Task.checkCancellation()
     }
 
     func countTokens(request: LLMTokenCountRequest) async throws -> Double {
