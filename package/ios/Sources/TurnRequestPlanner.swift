@@ -21,6 +21,7 @@ enum TurnPlanError: Error, Equatable {
     case schemaExclusiveWithTools
     case incompleteToolResults(missing: [String])
     case unknownToolCallId(String)
+    case duplicateToolCallId(String)
 }
 
 enum TurnMode: Equatable {
@@ -70,8 +71,15 @@ enum TurnRequestPlanner {
             guard !hasColdFields else { throw TurnPlanError.coldFieldsOnWarmTurn }
             mode = .warm
 
-            // Every Tool Call Request from the previous turn needs a result,
-            // matched by id; order is free (spec: Tool call contract).
+            // Every Tool Call Request from the previous turn needs exactly one
+            // result, matched by id; order is free (spec: Tool call contract).
+            var seenProvided: Set<String> = []
+            for id in providedToolCallIds {
+                if !seenProvided.insert(id).inserted {
+                    throw TurnPlanError.duplicateToolCallId(id)
+                }
+            }
+
             let pending = Set(pendingToolCallIds)
             let provided = Set(providedToolCallIds)
             if let stray = provided.subtracting(pending).sorted().first {

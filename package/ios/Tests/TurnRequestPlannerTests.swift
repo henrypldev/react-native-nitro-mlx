@@ -113,6 +113,26 @@ struct TurnRequestPlannerTests {
             )
         }
 
+        // Pending tool calls: duplicate result id rejects
+        expectThrows(.duplicateToolCallId("c1"), "duplicate tool result id rejects") {
+            _ = try TurnRequestPlanner.plan(
+                messages: [msg("tool", toolCallId: "c1"), msg("tool", toolCallId: "c1")],
+                contextId: "ctx-1", contextKnown: true, contextHasTools: true,
+                pendingToolCallIds: ["c1"], hasColdFields: false,
+                requestHasTools: false, hasResponseSchema: false
+            )
+        }
+
+        // Pending tool calls: duplicate among an otherwise complete set rejects
+        expectThrows(.duplicateToolCallId("c2"), "duplicate among complete set rejects") {
+            _ = try TurnRequestPlanner.plan(
+                messages: [msg("tool", toolCallId: "c2"), msg("tool", toolCallId: "c1"), msg("tool", toolCallId: "c2")],
+                contextId: "ctx-1", contextKnown: true, contextHasTools: true,
+                pendingToolCallIds: ["c1", "c2"], hasColdFields: false,
+                requestHasTools: false, hasResponseSchema: false
+            )
+        }
+
         // Pending tool calls: complete set in any order passes, mode is warm
         do {
             let plan = try TurnRequestPlanner.plan(
