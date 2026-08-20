@@ -20,10 +20,10 @@ export default function TabsLayout() {
     >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon
-          sf={{ default: 'house', selected: 'house.fill' }}
-          md="home"
+          sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }}
+          md="chat"
         />
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Chat</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="tts">
