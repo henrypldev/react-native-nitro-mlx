@@ -93,6 +93,14 @@ describe('runtime guards', () => {
     )
   })
 
+  it('rejects a non-finite seed in load generationConfig', () => {
+    expect(() =>
+      validateLLMLoadOptions({
+        generationConfig: { seed: Number.POSITIVE_INFINITY },
+      }),
+    ).toThrow(/seed/)
+  })
+
   it('rejects invalid TTS generation options', () => {
     expect(() => validateTTSGenerateOptions({ speed: TTS_MIN_SPEED - 0.01 })).toThrow(
       'must be between 0.5 and 2',

@@ -131,6 +131,14 @@ namespace margelo::nitro::mlxreactnative::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(const LLMTurnOutcome& /* result */)>
+  Func_void_LLMTurnOutcome create_Func_void_LLMTurnOutcome(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = MLXReactNative::Func_void_LLMTurnOutcome::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const LLMTurnOutcome& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
   // pragma MARK: std::shared_ptr<HybridLLMSpec>
   std::shared_ptr<HybridLLMSpec> create_std__shared_ptr_HybridLLMSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     MLXReactNative::HybridLLMSpec_cxx swiftPart = MLXReactNative::HybridLLMSpec_cxx::fromUnsafe(swiftUnsafePointer);

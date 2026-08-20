@@ -179,6 +179,180 @@ cases.
 | `lastError` | Last error thrown by `load()` or `sendMessage()` |
 | `lastStats` | Stats from the most recent generation outcome |
 
+### Building an Agent Loop
+
+`LLM.runTurn` runs one LLM Generation Turn and returns any Tool Call Requests to
+you. The package does not execute tools and does not loop for you — your code
+owns both.
+
+Two rules keep a loop correct:
+
+- Branch on `turn.toolCalls.length`, not on `finishReason === 'tool_calls'`.
+  The tool-call array tells you whether the model wants to act. Read
+  `finishReason` for the other outcomes: `'completed'`, `'stopped'`,
+  `'failed'`, `'length'`, and so on.
+- Return one `tool` message per call, keyed by `toolCallId`. The model matches
+  each result to its request by that ID, so every call needs a result — even a
+  failed one. Set `isError: true` on failure: the library prefixes the
+  rendered content with `"Error: "` so the model sees the failure on every
+  path. Put the failure reason in `content` yourself — the prefix marks the
+  failure, `content` explains it.
+
+```typescript
+import { LLM, type LLMMessage, type LLMTurnOutcome, type ToolSchema } from 'react-native-nitro-mlx'
+
+const TOOL_SCHEMAS: ToolSchema[] = [
+  {
+    name: 'check_calendar',
+    description: "Get today's calendar events. Takes no parameters.",
+    parameters: JSON.stringify({
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    }),
+  },
+]
+
+function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+): { content: string; isError: boolean } {
+  // Look up and run the tool here. Return isError: true on failure.
+  return { content: 'No events today.', isError: false }
+}
+
+async function runAgent(goal: string, maxSteps = 6): Promise<LLMTurnOutcome> {
+  const ctx = await LLM.createContext({
+    instructions: 'You are a helpful assistant. Use tools before answering.',
+    tools: TOOL_SCHEMAS,
+  })
+
+  try {
+    let messages: LLMMessage[] = [{ role: 'user', content: goal }]
+
+    for (let step = 0; step < maxSteps; step += 1) {
+      const turn = await LLM.runTurn({ contextId: ctx.id, messages })
+
+      if (turn.toolCalls.length === 0) {
+        // No tool calls: check finishReason for why. 'completed' is a final
+        // answer; 'stopped', 'failed', 'length', and others did not finish —
+        // read turn.error (and turn.stage when finishReason is 'failed').
+        return turn
+      }
+
+      messages = turn.toolCalls.map((call): LLMMessage => {
+        const { content, isError } = executeTool(call.name, call.arguments)
+        return {
+          role: 'tool',
+          toolCallId: call.id,
+          name: call.name,
+          content,
+          isError: isError || undefined,
+        }
+      })
+    }
+
+    throw new Error('Agent stopped: too many steps')
+  } finally {
+    ctx.release()
+  }
+}
+```
+
+### runTurn vs ChatSession
+
+Both run turns against the loaded model. Pick the one that matches who should
+own the loop.
+
+| | `ChatSession` | `runTurn` + Turn Contexts |
+|---|---|---|
+| Best for | A single chat UI that should just work | An agent loop, tool approval, step budgets, or more than one conversational role |
+| Tool calls | Executed for you; you supply handlers | Returned to you as Tool Call Requests; you execute them and report results back |
+| History | Held by the session (`chat.messages`) | Held by a Turn Context, or assembled by you per turn |
+| Control | The package drives the loop | You drive the loop, one `runTurn` call per step |
+
+Start with `ChatSession`. Reach for `runTurn` and Turn Contexts when your app
+must see a tool call before it runs, cap the number of steps, or manage more
+state than one conversation.
+
+### Turn Context Lifetime and Memory
+
+A Turn Context stays in memory until you release it. It does not expire on
+its own.
+
+Always release a context, even on error. Wrap the loop in `try`/`finally` and
+call `ctx.release()` in the `finally` block, as shown above.
+
+Each turn on a context adds to its transcript and keeps its KV cache warm, so
+memory use grows with the length of the conversation. Cap the number of
+steps, or start a fresh context for a new goal, to keep memory bounded.
+
+Check which contexts are live with `LLM.contextIds`. Release all of them at
+once with `LLM.releaseAllContexts()` — useful, for example, when a screen
+unmounts.
+
+Turn Contexts do not survive `load()`, `unload()`, or an app restart. Loading
+a different model, or calling `unload()`, invalidates every existing context
+ID. Create new contexts after a model switch.
+
+### Structured Output
+
+Pass `responseSchema` on a `runTurn` request to get back JSON that matches a
+schema, instead of a tool call or free text. It works on a cold turn and on a
+turn against a Turn Context. It is exclusive with `tools` — passing both, or
+passing `responseSchema` against a context that already declares tools, is
+rejected before the turn starts.
+
+Internally, the package offers the model one hidden tool built from your
+schema and asks it to call that tool. You never see this tool: it is absent
+from `toolCalls`, and no `tool_call_start` event fires for it.
+
+On success, `finishReason` is `'completed'`, `rawFinishReason` is
+`'structured_output'`, `content` is the JSON string, and `toolCalls` is
+empty.
+
+On failure — the model answered in prose, called a different tool, or its
+arguments did not serialize — `finishReason` is `'failed'` and `stage` is
+`'schema'`. `content` holds whatever prose the model produced. Retry is your
+call; the package does not retry on its own.
+
+A failed schema turn on a warm Turn Context leaves the transcript untouched.
+The live session's cache from the failed attempt is discarded, and the next
+turn rebuilds it from the transcript — a one-time re-prefill cost.
+
+For best results, restate the expected shape in your instructions, not only
+in the schema.
+
+```typescript
+// A cold turn: responseSchema works with or without a Turn Context.
+const outcome = await LLM.runTurn({
+  messages: [{ role: 'user', content: 'Extract the event: Lunch with Sam at noon.' }],
+  responseSchema: JSON.stringify({
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      time: { type: 'string' },
+    },
+    required: ['title', 'time'],
+    additionalProperties: false,
+  }),
+})
+
+if (outcome.finishReason === 'completed') {
+  const event = JSON.parse(outcome.content)
+} else if (outcome.stage === 'schema') {
+  // The model missed the shape. Retry, or fall back to a plain turn.
+}
+```
+
+### Limitations
+
+- `usage` is best-effort on a cancelled turn. A stop that races the final
+  accounting can report zero counts.
+- A cancelled turn can emit a `tool_call_start` event for a call that the
+  final outcome does not include (`toolCalls: []`). If you render events
+  live, reconcile against the outcome once it resolves.
+
 ### Text-to-Speech
 
 ```typescript

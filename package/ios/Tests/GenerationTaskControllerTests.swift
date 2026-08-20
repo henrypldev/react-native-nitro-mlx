@@ -26,12 +26,13 @@ struct GenerationTaskControllerTests {
     static func main() async throws {
         try await cancellationKeepsTheSlotOccupiedUntilCompletion()
         try staleCompletionCannotClearANewerTask()
+        try tasksOfDifferentResultTypesShareOneSlot()
         print("GenerationTaskControllerTests passed")
     }
 
     @MainActor
     private static func cancellationKeepsTheSlotOccupiedUntilCompletion() async throws {
-        let controller = GenerationTaskController<String>()
+        let controller = GenerationTaskController()
         let task = Task<String, Never> { @MainActor in
             while !Task.isCancelled {
                 await Task.yield()
@@ -70,7 +71,7 @@ struct GenerationTaskControllerTests {
 
     @MainActor
     private static func staleCompletionCannotClearANewerTask() throws {
-        let controller = GenerationTaskController<String>()
+        let controller = GenerationTaskController()
         let firstTask = Task<String, Never> { "first" }
         let firstID = try controller.begin(firstTask)
         controller.finish(id: firstID)
@@ -89,5 +90,32 @@ struct GenerationTaskControllerTests {
             !controller.isActive,
             "the owning completion should clear its task"
         )
+    }
+
+    /// Legacy generations and turns resolve different result types but must
+    /// still exclude each other, so the slot erases the task's result type.
+    @MainActor
+    private static func tasksOfDifferentResultTypesShareOneSlot() throws {
+        let controller = GenerationTaskController()
+        let stringTask = Task<String, Never> { "legacy" }
+        let stringID = try controller.begin(stringTask)
+
+        let intTask = Task<Int, Never> { 1 }
+        do {
+            _ = try controller.begin(intTask)
+            throw GenerationTaskControllerTestFailure.failed(
+                "a second generation of another result type must be rejected"
+            )
+        } catch LLMError.alreadyGenerating {
+            // Expected.
+        }
+
+        controller.finish(id: stringID)
+        let intID = try controller.begin(intTask)
+        try expectGenerationTaskController(
+            controller.isActive,
+            "the slot should accept the next task once the first finished"
+        )
+        controller.finish(id: intID)
     }
 }

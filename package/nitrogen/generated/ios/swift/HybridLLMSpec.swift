@@ -10,6 +10,7 @@ import NitroModules
 /// See ``HybridLLMSpec``
 public protocol HybridLLMSpec_protocol: HybridObject {
   // Properties
+  var turnContextIds: [String] { get }
   var isLoaded: Bool { get }
   var isGenerating: Bool { get }
   var modelId: String { get }
@@ -21,6 +22,11 @@ public protocol HybridLLMSpec_protocol: HybridObject {
   func generate(prompt: String) throws -> Promise<LLMGenerationOutcome>
   func stream(prompt: String, onToken: @escaping (_ token: String) -> Void, onToolCall: ((_ toolName: String, _ args: String) -> Void)?) throws -> Promise<LLMGenerationOutcome>
   func streamWithEvents(prompt: String, onEvent: @escaping (_ event: StreamEventEnvelope) -> Void) throws -> Promise<LLMGenerationOutcome>
+  func createTurnContext(options: LLMTurnContextOptions?) throws -> Promise<String>
+  func releaseTurnContext(id: String) throws -> Void
+  func releaseAllTurnContexts() throws -> Void
+  func runTurn(request: LLMTurnRequest, onEvent: @escaping (_ event: StreamEventEnvelope) -> Void) throws -> Promise<LLMTurnOutcome>
+  func countTokens(request: LLMTokenCountRequest) throws -> Promise<Double>
   func stop() throws -> Void
   func unload() throws -> Void
   func getHistory() throws -> [LLMMessage]

@@ -17,6 +17,20 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
+            name="benchmark"
+            options={{
+              title: 'Baseline Benchmark',
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
+            name="agent-lab"
+            options={{
+              title: 'Agent Lab',
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
             name="download-modal"
             options={{
               presentation: 'modal',

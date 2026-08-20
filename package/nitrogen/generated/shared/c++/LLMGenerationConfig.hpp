@@ -49,10 +49,13 @@ namespace margelo::nitro::mlxreactnative {
     std::optional<double> repetitionPenalty     SWIFT_PRIVATE;
     std::optional<double> repetitionContextSize     SWIFT_PRIVATE;
     std::optional<double> prefillStepSize     SWIFT_PRIVATE;
+    std::optional<double> seed     SWIFT_PRIVATE;
+    std::optional<double> topK     SWIFT_PRIVATE;
+    std::optional<double> minP     SWIFT_PRIVATE;
 
   public:
     LLMGenerationConfig() = default;
-    explicit LLMGenerationConfig(std::optional<double> maxTokens, std::optional<double> maxKVSize, std::optional<double> kvBits, std::optional<double> kvGroupSize, std::optional<double> quantizedKVStart, std::optional<double> temperature, std::optional<double> topP, std::optional<double> repetitionPenalty, std::optional<double> repetitionContextSize, std::optional<double> prefillStepSize): maxTokens(maxTokens), maxKVSize(maxKVSize), kvBits(kvBits), kvGroupSize(kvGroupSize), quantizedKVStart(quantizedKVStart), temperature(temperature), topP(topP), repetitionPenalty(repetitionPenalty), repetitionContextSize(repetitionContextSize), prefillStepSize(prefillStepSize) {}
+    explicit LLMGenerationConfig(std::optional<double> maxTokens, std::optional<double> maxKVSize, std::optional<double> kvBits, std::optional<double> kvGroupSize, std::optional<double> quantizedKVStart, std::optional<double> temperature, std::optional<double> topP, std::optional<double> repetitionPenalty, std::optional<double> repetitionContextSize, std::optional<double> prefillStepSize, std::optional<double> seed, std::optional<double> topK, std::optional<double> minP): maxTokens(maxTokens), maxKVSize(maxKVSize), kvBits(kvBits), kvGroupSize(kvGroupSize), quantizedKVStart(quantizedKVStart), temperature(temperature), topP(topP), repetitionPenalty(repetitionPenalty), repetitionContextSize(repetitionContextSize), prefillStepSize(prefillStepSize), seed(seed), topK(topK), minP(minP) {}
 
   public:
     friend bool operator==(const LLMGenerationConfig& lhs, const LLMGenerationConfig& rhs) = default;
@@ -77,7 +80,10 @@ namespace margelo::nitro {
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "topP"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "repetitionPenalty"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "repetitionContextSize"))),
-        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "prefillStepSize")))
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "prefillStepSize"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "seed"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "topK"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "minP")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mlxreactnative::LLMGenerationConfig& arg) {
@@ -92,6 +98,9 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "repetitionPenalty"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.repetitionPenalty));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "repetitionContextSize"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.repetitionContextSize));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "prefillStepSize"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.prefillStepSize));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "seed"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.seed));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "topK"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.topK));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "minP"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.minP));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -112,6 +121,9 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "repetitionPenalty")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "repetitionContextSize")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "prefillStepSize")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "seed")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "topK")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "minP")))) return false;
       return true;
     }
   };

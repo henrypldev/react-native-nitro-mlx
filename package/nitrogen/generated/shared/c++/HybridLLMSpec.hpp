@@ -19,18 +19,30 @@ namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 // Forward declaration of `StreamEventEnvelope` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
+// Forward declaration of `LLMTurnContextOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnContextOptions; }
+// Forward declaration of `LLMTurnOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnOutcome; }
+// Forward declaration of `LLMTurnRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnRequest; }
+// Forward declaration of `LLMTokenCountRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTokenCountRequest; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
 
 #include <string>
+#include <vector>
 #include <NitroModules/Promise.hpp>
 #include "LLMLoadOptions.hpp"
 #include <optional>
 #include "LLMGenerationOutcome.hpp"
 #include <functional>
 #include "StreamEventEnvelope.hpp"
+#include "LLMTurnContextOptions.hpp"
+#include "LLMTurnOutcome.hpp"
+#include "LLMTurnRequest.hpp"
+#include "LLMTokenCountRequest.hpp"
 #include "LLMMessage.hpp"
-#include <vector>
 
 namespace margelo::nitro::mlxreactnative {
 
@@ -59,6 +71,7 @@ namespace margelo::nitro::mlxreactnative {
 
     public:
       // Properties
+      virtual std::vector<std::string> getTurnContextIds() = 0;
       virtual bool getIsLoaded() = 0;
       virtual bool getIsGenerating() = 0;
       virtual std::string getModelId() = 0;
@@ -73,6 +86,11 @@ namespace margelo::nitro::mlxreactnative {
       virtual std::shared_ptr<Promise<LLMGenerationOutcome>> generate(const std::string& prompt) = 0;
       virtual std::shared_ptr<Promise<LLMGenerationOutcome>> stream(const std::string& prompt, const std::function<void(const std::string& /* token */)>& onToken, const std::optional<std::function<void(const std::string& /* toolName */, const std::string& /* args */)>>& onToolCall) = 0;
       virtual std::shared_ptr<Promise<LLMGenerationOutcome>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) = 0;
+      virtual std::shared_ptr<Promise<std::string>> createTurnContext(const std::optional<LLMTurnContextOptions>& options) = 0;
+      virtual void releaseTurnContext(const std::string& id) = 0;
+      virtual void releaseAllTurnContexts() = 0;
+      virtual std::shared_ptr<Promise<LLMTurnOutcome>> runTurn(const LLMTurnRequest& request, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) = 0;
+      virtual std::shared_ptr<Promise<double>> countTokens(const LLMTokenCountRequest& request) = 0;
       virtual void stop() = 0;
       virtual void unload() = 0;
       virtual std::vector<LLMMessage> getHistory() = 0;

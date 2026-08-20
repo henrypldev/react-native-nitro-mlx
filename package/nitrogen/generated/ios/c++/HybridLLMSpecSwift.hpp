@@ -36,14 +36,32 @@ namespace margelo::nitro::mlxreactnative { enum class LLMGenerationFinishReason;
 namespace margelo::nitro::mlxreactnative { struct StreamEventEnvelope; }
 // Forward declaration of `StreamEventKind` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
+// Forward declaration of `LLMTurnContextOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnContextOptions; }
+// Forward declaration of `LLMTurnMessage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnMessage; }
+// Forward declaration of `LLMToolSchema` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolSchema; }
+// Forward declaration of `LLMTurnOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnOutcome; }
+// Forward declaration of `LLMTurnFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMTurnFinishReason; }
+// Forward declaration of `LLMToolCallWire` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolCallWire; }
+// Forward declaration of `LLMTurnUsage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnUsage; }
+// Forward declaration of `LLMTurnRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnRequest; }
+// Forward declaration of `LLMTokenCountRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTokenCountRequest; }
 
 #include <string>
+#include <vector>
 #include <NitroModules/Promise.hpp>
 #include "LLMLoadOptions.hpp"
 #include <optional>
 #include <functional>
 #include "LLMMessage.hpp"
-#include <vector>
 #include "ToolDefinition.hpp"
 #include "ToolParameter.hpp"
 #include <NitroModules/AnyMap.hpp>
@@ -55,6 +73,15 @@ namespace margelo::nitro::mlxreactnative { enum class StreamEventKind; }
 #include "LLMGenerationFinishReason.hpp"
 #include "StreamEventEnvelope.hpp"
 #include "StreamEventKind.hpp"
+#include "LLMTurnContextOptions.hpp"
+#include "LLMTurnMessage.hpp"
+#include "LLMToolSchema.hpp"
+#include "LLMTurnOutcome.hpp"
+#include "LLMTurnFinishReason.hpp"
+#include "LLMToolCallWire.hpp"
+#include "LLMTurnUsage.hpp"
+#include "LLMTurnRequest.hpp"
+#include "LLMTokenCountRequest.hpp"
 
 #include "MLXReactNative-Swift-Cxx-Umbrella.hpp"
 
@@ -102,6 +129,10 @@ namespace margelo::nitro::mlxreactnative {
 
   public:
     // Properties
+    inline std::vector<std::string> getTurnContextIds() noexcept override {
+      auto __result = _swiftPart.getTurnContextIds();
+      return __result;
+    }
     inline bool getIsLoaded() noexcept override {
       return _swiftPart.isLoaded();
     }
@@ -154,6 +185,42 @@ namespace margelo::nitro::mlxreactnative {
     }
     inline std::shared_ptr<Promise<LLMGenerationOutcome>> streamWithEvents(const std::string& prompt, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) override {
       auto __result = _swiftPart.streamWithEvents(prompt, onEvent);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> createTurnContext(const std::optional<LLMTurnContextOptions>& options) override {
+      auto __result = _swiftPart.createTurnContext(options);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void releaseTurnContext(const std::string& id) override {
+      auto __result = _swiftPart.releaseTurnContext(id);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void releaseAllTurnContexts() override {
+      auto __result = _swiftPart.releaseAllTurnContexts();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::shared_ptr<Promise<LLMTurnOutcome>> runTurn(const LLMTurnRequest& request, const std::function<void(const StreamEventEnvelope& /* event */)>& onEvent) override {
+      auto __result = _swiftPart.runTurn(std::forward<decltype(request)>(request), onEvent);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<double>> countTokens(const LLMTokenCountRequest& request) override {
+      auto __result = _swiftPart.countTokens(std::forward<decltype(request)>(request));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

@@ -51,6 +51,8 @@ export type {
   LLMGenerationOutcome,
   LLMLoadOptions,
   LLMToolExecution,
+  LLMTurnFinishReason,
+  LLMTurnUsage,
   StreamEvent,
   ThinkingChunkEvent,
   ThinkingEndEvent,
@@ -80,3 +82,13 @@ export type {
 export { STT } from './stt'
 export { createTool, type TypeSafeToolDefinition } from './tool-utils'
 export { TTS } from './tts'
+export type {
+  LLMContext,
+  LLMContextOptions,
+  LLMMessage,
+  LLMTokenCountRequest,
+  LLMToolCall,
+  LLMTurnOutcome,
+  LLMTurnRequest,
+  ToolSchema,
+} from './turn'

@@ -36,8 +36,26 @@ namespace margelo::nitro::mlxreactnative { struct LLMGenerationOutcome; }
 namespace margelo::nitro::mlxreactnative { struct LLMLoadOptions; }
 // Forward declaration of `LLMMessage` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct LLMMessage; }
+// Forward declaration of `LLMTokenCountRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTokenCountRequest; }
+// Forward declaration of `LLMToolCallWire` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolCallWire; }
 // Forward declaration of `LLMToolExecution` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { enum class LLMToolExecution; }
+// Forward declaration of `LLMToolSchema` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMToolSchema; }
+// Forward declaration of `LLMTurnContextOptions` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnContextOptions; }
+// Forward declaration of `LLMTurnFinishReason` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { enum class LLMTurnFinishReason; }
+// Forward declaration of `LLMTurnMessage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnMessage; }
+// Forward declaration of `LLMTurnOutcome` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnOutcome; }
+// Forward declaration of `LLMTurnRequest` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnRequest; }
+// Forward declaration of `LLMTurnUsage` to properly resolve imports.
+namespace margelo::nitro::mlxreactnative { struct LLMTurnUsage; }
 // Forward declaration of `STTListeningOptions` to properly resolve imports.
 namespace margelo::nitro::mlxreactnative { struct STTListeningOptions; }
 // Forward declaration of `STTLoadOptions` to properly resolve imports.
@@ -72,7 +90,16 @@ namespace margelo::nitro::mlxreactnative { struct ToolParameter; }
 #include "LLMGenerationOutcome.hpp"
 #include "LLMLoadOptions.hpp"
 #include "LLMMessage.hpp"
+#include "LLMTokenCountRequest.hpp"
+#include "LLMToolCallWire.hpp"
 #include "LLMToolExecution.hpp"
+#include "LLMToolSchema.hpp"
+#include "LLMTurnContextOptions.hpp"
+#include "LLMTurnFinishReason.hpp"
+#include "LLMTurnMessage.hpp"
+#include "LLMTurnOutcome.hpp"
+#include "LLMTurnRequest.hpp"
+#include "LLMTurnUsage.hpp"
 #include "STTListeningOptions.hpp"
 #include "STTLoadOptions.hpp"
 #include "STTTranscribeOptions.hpp"

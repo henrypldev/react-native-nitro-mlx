@@ -147,6 +147,100 @@ export interface LLMMessage {
 }
 
 /**
+ * Flat wire form of a turn message. `toolCallsJson` is a serialized array of
+ * `{ id, name, arguments }` objects and is only meaningful on assistant
+ * messages; the public wrapper in `turn.ts` maps this to a discriminated union.
+ * @internal
+ */
+export interface LLMTurnMessage {
+  role: string
+  content: string
+  toolCallId?: string
+  name?: string
+  isError?: boolean
+  toolCallsJson?: string
+}
+
+/** Tool exposed to a turn. `parameters` is a serialized JSON Schema; root must be an object schema. */
+export interface LLMToolSchema {
+  name: string
+  description: string
+  parameters: string
+}
+
+/**
+ * Wire form of a Tool Call Request. `argumentsJson` is serialized from the
+ * already-parsed native arguments; the wrapper parses it back to an object.
+ * @internal
+ */
+export interface LLMToolCallWire {
+  id: string
+  name: string
+  argumentsJson: string
+}
+
+export interface LLMTurnUsage {
+  promptTokens: number
+  completionTokens: number
+  /** Tokens served from a warm Turn Context rather than prefilled, when derivable. */
+  cachedPromptTokens?: number
+}
+
+export type LLMTurnFinishReason =
+  | 'completed'
+  | 'tool_calls'
+  | 'length'
+  | 'stopped'
+  | 'unloaded'
+  | 'superseded'
+  | 'failed'
+
+export interface LLMTurnOutcome {
+  finishReason: LLMTurnFinishReason
+  /** Unnormalized native reason, for diagnostics. Never branch on this. */
+  rawFinishReason?: string
+  content: string
+  thinking?: string
+  /** Populated when finishReason is 'tool_calls'. Empty otherwise. */
+  toolCalls: LLMToolCallWire[]
+  usage: LLMTurnUsage
+  stats: GenerationStats
+  error?: string
+  /** Failure stage: 'prepare' | 'generate' | 'schema'. */
+  stage?: string
+}
+
+export interface LLMTurnRequest {
+  /** Messages appended before generation. */
+  messages: LLMTurnMessage[]
+  /** Reuse a warm Turn Context. Omit for a cold, isolated turn. */
+  contextId?: string
+  /** Cold turns only; rejected when contextId is present. */
+  instructions?: string
+  history?: LLMTurnMessage[]
+  tools?: LLMToolSchema[]
+  generationConfig?: LLMGenerationConfig
+  /** Serialized JSON Schema. Exclusive with tools (request or context). */
+  responseSchema?: string
+  tokenBatchSize?: number
+}
+
+export interface LLMTurnContextOptions {
+  instructions?: string
+  history?: LLMTurnMessage[]
+  tools?: LLMToolSchema[]
+  generationConfig?: LLMGenerationConfig
+}
+
+export interface LLMTokenCountRequest {
+  contextId?: string
+  instructions?: string
+  history?: LLMTurnMessage[]
+  tools?: LLMToolSchema[]
+  messages?: LLMTurnMessage[]
+}
+
+/**
  * Controls low-level token generation behavior.
  */
 export interface LLMGenerationConfig {
@@ -170,6 +264,12 @@ export interface LLMGenerationConfig {
   repetitionContextSize?: number
   /** Prompt prefill chunk size used for long-context batching */
   prefillStepSize?: number
+  /** Seed for reproducible sampling. Same (seed, prompt, parameters) -> same tokens. */
+  seed?: number
+  /** Top-k sampling cutoff. 0 disables. */
+  topK?: number
+  /** Min-p sampling threshold. 0 disables. */
+  minP?: number
 }
 
 /**
@@ -265,6 +365,28 @@ export interface LLM extends HybridObject<{ ios: 'swift' }> {
     prompt: string,
     onEvent: (event: StreamEventEnvelope) => void,
   ): Promise<LLMGenerationOutcome>
+
+  /**
+   * Create a Turn Context: retained instructions, transcript, and warm KV
+   * cache over the Resident Model. Returns the context id.
+   */
+  createTurnContext(options?: LLMTurnContextOptions): Promise<string>
+  /** Release a Turn Context. Idempotent. */
+  releaseTurnContext(id: string): void
+  releaseAllTurnContexts(): void
+  readonly turnContextIds: string[]
+
+  /**
+   * Run one LLM Generation Turn. Returns Tool Call Requests to the caller
+   * instead of executing them. Never touches legacy managed history.
+   */
+  runTurn(
+    request: LLMTurnRequest,
+    onEvent: (event: StreamEventEnvelope) => void,
+  ): Promise<LLMTurnOutcome>
+
+  /** Count tokens for an assembled prompt with the loaded tokenizer and chat template. */
+  countTokens(request: LLMTokenCountRequest): Promise<number>
 
   /**
    * Stop the current generation.
