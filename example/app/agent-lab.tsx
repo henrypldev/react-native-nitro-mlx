@@ -177,6 +177,20 @@ type AgentStep =
   | { kind: 'answer'; text: string }
   | { kind: 'aborted'; reason: string } // stopped / failed / length / max-steps
 
+/**
+ * Builds the human-readable abort reason. On 'failed', both turn.stage and
+ * turn.error must surface — the stage says where it broke (e.g. schema
+ * validation), the error says why.
+ */
+function describeAbortReason(turn: LLMTurnOutcome): string {
+  if (turn.finishReason === 'failed') {
+    return turn.stage
+      ? `failed (${turn.stage}): ${turn.error ?? 'unknown error'}`
+      : (turn.error ?? 'failed')
+  }
+  return turn.error ?? turn.finishReason
+}
+
 async function runAgent(
   goal: string,
   opts: {
@@ -210,7 +224,7 @@ async function runAgent(
         turn.finishReason === 'failed' ||
         turn.finishReason === 'length'
       ) {
-        opts.onStep({ kind: 'aborted', reason: turn.error ?? turn.finishReason }, turn)
+        opts.onStep({ kind: 'aborted', reason: describeAbortReason(turn) }, turn)
         return
       }
 
@@ -462,13 +476,21 @@ export default function AgentLabScreen() {
       setIsRunning(true)
 
       try {
+        // `steps` counts distinct runTurn invocations (what maxSteps caps),
+        // not AgentSteps — a single turn can yield several tool-call steps.
         let steps = 0
+        let entrySeq = 0
+        let lastCountedTurn: LLMTurnOutcome | null = null
         await runAgent(trimmed, {
           maxSteps: DEFAULT_MAX_STEPS,
           onToken: token => setStreamingText(prev => prev + token),
           onStep: (step, turn) => {
-            steps += 1
-            setStepCount(steps)
+            entrySeq += 1
+            if (turn !== lastCountedTurn) {
+              lastCountedTurn = turn
+              steps += 1
+              setStepCount(steps)
+            }
             setLastTurnStats({
               promptTokens: turn.usage.promptTokens,
               completionTokens: turn.usage.completionTokens,
@@ -483,7 +505,7 @@ export default function AgentLabScreen() {
               setTranscript(prev => [
                 ...prev,
                 {
-                  id: `${step.call.id}-${steps}`,
+                  id: `${step.call.id}-${entrySeq}`,
                   kind: 'tool',
                   name: step.call.name,
                   args: step.call.arguments,
