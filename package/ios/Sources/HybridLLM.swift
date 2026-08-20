@@ -842,6 +842,13 @@ private final class HybridLLMCore {
             await generationTasks.cancelAndWait(reason: .superseded)
             try Task.checkCancellation()
 
+            // Unbounded, MLX's buffer cache grows toward Metal's
+            // recommendedMaxWorkingSetSize during sustained generation and
+            // walks the process into iOS's Jetsam limit (observed: 2.4 GB
+            // footprint, OOM kill, no crash log). 20 MB is the mlx-swift
+            // running-on-ios recommendation for LLM evaluation.
+            Memory.cacheLimit = 20 * 1024 * 1024
+
             let action = ModelLoadPlan.action(
                 requestedModelId: modelId,
                 loadedModelId: self.modelId,
