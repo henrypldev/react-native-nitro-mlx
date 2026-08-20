@@ -73,9 +73,9 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let normA = 0
   let normB = 0
   for (let i = 0; i < a.length; i++) {
-    // biome-ignore lint/style/noNonNullAssertion: indices within length are guaranteed numbers for Float32Array
+    // SAFETY: indices within length are guaranteed numbers for Float32Array
     const x = a[i]!
-    // biome-ignore lint/style/noNonNullAssertion: indices within length are guaranteed numbers for Float32Array
+    // SAFETY: indices within length are guaranteed numbers for Float32Array
     const y = b[i]!
     dot += x * y
     normA += x * x

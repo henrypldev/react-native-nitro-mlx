@@ -1,3 +1,4 @@
+import type { JsonObject } from './json'
 import { safeJsonParse } from './runtime'
 import type {
   GenerationStats,
@@ -16,7 +17,7 @@ export interface LLMToolCall {
   id: string
   name: string
   /** Parsed arguments. The native parser produced these; malformed output never reaches here. */
-  arguments: Record<string, unknown>
+  arguments: JsonObject
 }
 
 export type LLMMessage =
@@ -126,7 +127,7 @@ function fromWireToolCall(call: LLMToolCallWire): LLMToolCall {
   return {
     id: call.id,
     name: call.name,
-    arguments: safeJsonParse<Record<string, unknown>>(call.argumentsJson, {}),
+    arguments: safeJsonParse<JsonObject>(call.argumentsJson, {}),
   }
 }
 

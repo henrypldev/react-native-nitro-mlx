@@ -1,9 +1,17 @@
+import { z } from 'zod'
+import type { JsonValue } from './json'
 import type {
   EmbeddingsEmbedOptions,
   EmbeddingsLoadOptions,
 } from './specs/Embeddings.nitro'
 import type {
+  LLMGenerationConfig,
   LLMLoadOptions,
+  LLMTokenCountRequest,
+  LLMToolSchema,
+  LLMTurnContextOptions,
+  LLMTurnMessage,
+  LLMTurnRequest,
   StreamEvent,
   StreamEventEnvelope,
   ToolDefinition,
@@ -18,44 +26,57 @@ import type { TTSGenerateOptions, TTSLoadOptions } from './specs/TTS.nitro'
 const ERROR_PREFIX = '[react-native-nitro-mlx]'
 export const TTS_MIN_SPEED = 0.5
 export const TTS_MAX_SPEED = 2
+// SAFETY: every supported RN runtime provides a global console, but the
+// `globalThis` type cannot prove it; the optional access degrades to a no-op.
 const runtimeConsole = (
   globalThis as { console?: { error?: (...args: unknown[]) => void } }
 ).console
 
-function describeType(value: unknown): string {
+const stringSchema = z.string()
+const booleanSchema = z.boolean()
+const arrayBufferSchema = z.instanceof(ArrayBuffer)
+const functionSchema = z.instanceof(Function)
+
+/**
+ * Names the runtime representation of a value for error messages. Generic so
+ * it stays callable from failed-guard branches where TS has narrowed to `never`.
+ */
+function describeType<T>(value: T): string {
   if (value === null) {
     return 'null'
   }
   if (value === undefined) {
     return 'undefined'
   }
-  if (value instanceof ArrayBuffer) {
+  if (arrayBufferSchema.safeParse(value).success) {
     return 'ArrayBuffer'
   }
-  return typeof value
+  return Object.prototype.toString.call(value).slice(8, -1).toLowerCase()
 }
 
-export function assertNonEmptyString(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+export function assertNonEmptyString(value: string, name: string): string {
+  const parsed = stringSchema.safeParse(value)
+  if (!parsed.success || parsed.data.trim().length === 0) {
     throw new TypeError(`${ERROR_PREFIX} ${name} must be a non-empty string.`)
   }
-  return value
+  return parsed.data
 }
 
-export function assertArrayBuffer(value: unknown, name: string): ArrayBuffer {
-  if (!(value instanceof ArrayBuffer)) {
+export function assertArrayBuffer(value: ArrayBuffer, name: string): ArrayBuffer {
+  const parsed = arrayBufferSchema.safeParse(value)
+  if (!parsed.success) {
     throw new TypeError(
       `${ERROR_PREFIX} ${name} must be an ArrayBuffer, received ${describeType(value)}.`,
     )
   }
-  if (value.byteLength === 0) {
+  if (parsed.data.byteLength === 0) {
     throw new TypeError(`${ERROR_PREFIX} ${name} must not be empty.`)
   }
-  return value
+  return parsed.data
 }
 
-export function assertBoolean(value: unknown, name: string): boolean {
-  if (typeof value !== 'boolean') {
+export function assertBoolean(value: boolean, name: string): boolean {
+  if (!booleanSchema.safeParse(value).success) {
     throw new TypeError(`${ERROR_PREFIX} ${name} must be a boolean.`)
   }
   return value
@@ -68,7 +89,7 @@ export function createSafeCallback<TArgs extends unknown[]>(
   if (callback == null) {
     return undefined
   }
-  if (typeof callback !== 'function') {
+  if (!functionSchema.safeParse(callback).success) {
     throw new TypeError(
       `${ERROR_PREFIX} ${name} must be a function, received ${describeType(callback)}.`,
     )
@@ -95,7 +116,7 @@ function validateToolDefinitions(tools: ToolDefinition[]): ToolDefinition[] {
     }
     seenNames.add(name)
 
-    if (typeof tool.handler !== 'function') {
+    if (!functionSchema.safeParse(tool.handler).success) {
       throw new TypeError(`${ERROR_PREFIX} tools[${index}].handler must be a function.`)
     }
 
@@ -197,7 +218,7 @@ function detectEncodedAudioFormat(buffer: ArrayBuffer): string | null {
   return null
 }
 
-export function validateSTTAudio(value: unknown, name: string): ArrayBuffer {
+export function validateSTTAudio(value: ArrayBuffer, name: string): ArrayBuffer {
   const buffer = assertArrayBuffer(value, name)
   if (buffer.byteLength % 4 !== 0) {
     throw new TypeError(
@@ -213,7 +234,7 @@ export function validateSTTAudio(value: unknown, name: string): ArrayBuffer {
   return buffer
 }
 
-function validateSTTLanguage(language: unknown): void {
+function validateSTTLanguage(language: string | undefined): void {
   if (language !== undefined) {
     assertNonEmptyString(language, 'STT language')
   }
@@ -380,28 +401,47 @@ export function mapStreamEventEnvelope(
 
 export function safeJsonParse<T>(value: string, fallback: T): T {
   try {
+    // SAFETY: the caller declares the payload contract via T and supplies a
+    // fallback; a payload that violates T is the caller's documented risk.
     return JSON.parse(value) as T
   } catch {
     return fallback
   }
 }
 
-const TURN_ROLES = new Set(['system', 'user', 'assistant', 'tool'])
+const turnMessageSchema = z.looseObject({
+  role: z.enum(['system', 'user', 'assistant', 'tool']),
+  content: z.string(),
+  toolCallId: z.string().optional(),
+  name: z.string().optional(),
+  isError: z.boolean().optional(),
+  toolCallsJson: z.string().optional(),
+})
 
-export interface TurnMessageLike {
-  role: string
-  content: string
-  toolCallId?: string
-  name?: string
-  isError?: boolean
-  toolCallsJson?: string
+const roleProbeSchema = z.looseObject({ role: z.coerce.string() })
+
+function turnMessageError(
+  issues: z.core.$ZodIssue[],
+  message: LLMTurnMessage,
+  label: string,
+): TypeError {
+  const field = issues[0]?.path[0]
+  if (field === 'content') {
+    return new TypeError(`${ERROR_PREFIX} ${label}.content must be a string`)
+  }
+  if (field === undefined || field === 'role') {
+    const probe = roleProbeSchema.safeParse(message)
+    const role = probe.success ? probe.data.role : undefined
+    return new TypeError(`${ERROR_PREFIX} ${label} has unknown role: ${String(role)}`)
+  }
+  return new TypeError(`${ERROR_PREFIX} ${label}.${String(field)} is invalid`)
 }
 
 export function validateTurnMessages(
-  value: unknown,
+  value: LLMTurnMessage[],
   name: string,
   options: { requireNonEmpty?: boolean },
-): TurnMessageLike[] {
+): LLMTurnMessage[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`${ERROR_PREFIX} ${name} must be an array`)
   }
@@ -410,116 +450,103 @@ export function validateTurnMessages(
   }
   return value.map((message, index) => {
     const label = `${name}[${index}]`
-    const role = (message as TurnMessageLike)?.role
-    if (typeof role !== 'string' || !TURN_ROLES.has(role)) {
-      throw new TypeError(`${ERROR_PREFIX} ${label} has unknown role: ${String(role)}`)
+    const parsed = turnMessageSchema.safeParse(message)
+    if (!parsed.success) {
+      throw turnMessageError(parsed.error.issues, message, label)
     }
-    if (typeof (message as TurnMessageLike).content !== 'string') {
-      throw new TypeError(`${ERROR_PREFIX} ${label}.content must be a string`)
-    }
-    const m = message as TurnMessageLike
-    if (role === 'tool' && (typeof m.toolCallId !== 'string' || m.toolCallId === '')) {
+    const m = parsed.data
+    if (m.role === 'tool' && (m.toolCallId === undefined || m.toolCallId === '')) {
       throw new TypeError(
         `${ERROR_PREFIX} ${label} is a tool message and requires a non-empty toolCallId`,
       )
     }
-    if (m.toolCallsJson !== undefined && role !== 'assistant') {
+    if (m.toolCallsJson !== undefined && m.role !== 'assistant') {
       throw new TypeError(
         `${ERROR_PREFIX} ${label} carries tool calls but only assistant messages may`,
       )
     }
-    return m
+    return message
   })
 }
 
-export interface ToolSchemaLike {
-  name: string
-  description: string
-  parameters: string
-}
+const objectSchemaRootSchema = z.looseObject({ type: z.literal('object') })
 
-export function validateToolSchemas(value: unknown, name: string): ToolSchemaLike[] {
+export function validateToolSchemas(
+  value: LLMToolSchema[],
+  name: string,
+): LLMToolSchema[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`${ERROR_PREFIX} ${name} must be an array`)
   }
   const seen = new Set<string>()
   return value.map((tool, index) => {
     const label = `${name}[${index}]`
-    const t = tool as ToolSchemaLike
-    assertNonEmptyString(t?.name, `${label}.name`)
-    assertNonEmptyString(t?.description, `${label}.description`)
-    assertNonEmptyString(t?.parameters, `${label}.parameters`)
-    if (seen.has(t.name)) {
+    assertNonEmptyString(tool?.name, `${label}.name`)
+    assertNonEmptyString(tool?.description, `${label}.description`)
+    assertNonEmptyString(tool?.parameters, `${label}.parameters`)
+    if (seen.has(tool.name)) {
       throw new TypeError(
-        `${ERROR_PREFIX} ${name} contains a duplicate tool name: ${t.name}`,
+        `${ERROR_PREFIX} ${name} contains a duplicate tool name: ${tool.name}`,
       )
     }
-    seen.add(t.name)
-    let parsed: unknown
+    seen.add(tool.name)
+    let parsedParameters: JsonValue
     try {
-      parsed = JSON.parse(t.parameters)
+      parsedParameters = JSON.parse(tool.parameters)
     } catch {
       throw new TypeError(`${ERROR_PREFIX} ${label}.parameters is not valid JSON`)
     }
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      Array.isArray(parsed) ||
-      (parsed as { type?: unknown }).type !== 'object'
-    ) {
+    if (!objectSchemaRootSchema.safeParse(parsedParameters).success) {
       throw new TypeError(
         `${ERROR_PREFIX} ${label}.parameters root must be an object schema ("type": "object")`,
       )
     }
-    return t
+    return tool
   })
 }
 
-export interface GenerationConfigLike {
-  seed?: unknown
-  topK?: unknown
-  minP?: unknown
-}
+const generationTuningSchema = z.looseObject({
+  seed: z
+    .number()
+    .refine(seed => Number.isSafeInteger(seed) && seed >= 0)
+    .optional(),
+  topK: z
+    .number()
+    .refine(topK => Number.isInteger(topK) && topK >= 0)
+    .optional(),
+  minP: z
+    .number()
+    .refine(minP => Number.isFinite(minP) && minP >= 0 && minP <= 1)
+    .optional(),
+})
 
-function validateGenerationConfig(config: unknown, name: string): void {
+function validateGenerationConfig(
+  config: LLMGenerationConfig | undefined,
+  name: string,
+): void {
   if (config === undefined) {
     return
   }
-  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
-    throw new TypeError(`${ERROR_PREFIX} ${name} must be an object.`)
+  const parsed = generationTuningSchema.safeParse(config)
+  if (parsed.success) {
+    return
   }
-  const { seed, topK, minP } = config as GenerationConfigLike
-  if (seed !== undefined) {
-    if (typeof seed !== 'number' || !Number.isSafeInteger(seed) || seed < 0) {
-      throw new TypeError(
-        `${ERROR_PREFIX} ${name}.seed must be a non-negative safe integer.`,
-      )
-    }
+  const field = parsed.error.issues[0]?.path[0]
+  if (field === 'seed') {
+    throw new TypeError(
+      `${ERROR_PREFIX} ${name}.seed must be a non-negative safe integer.`,
+    )
   }
-  if (topK !== undefined) {
-    if (typeof topK !== 'number' || !Number.isInteger(topK) || topK < 0) {
-      throw new TypeError(`${ERROR_PREFIX} ${name}.topK must be a non-negative integer.`)
-    }
+  if (field === 'topK') {
+    throw new TypeError(`${ERROR_PREFIX} ${name}.topK must be a non-negative integer.`)
   }
-  if (minP !== undefined) {
-    if (typeof minP !== 'number' || !Number.isFinite(minP) || minP < 0 || minP > 1) {
-      throw new TypeError(`${ERROR_PREFIX} ${name}.minP must be between 0 and 1.`)
-    }
+  if (field === 'minP') {
+    throw new TypeError(`${ERROR_PREFIX} ${name}.minP must be between 0 and 1.`)
   }
+  throw new TypeError(`${ERROR_PREFIX} ${name} must be an object.`)
 }
 
-export interface TurnRequestLike {
-  messages: unknown
-  contextId?: string
-  instructions?: string
-  history?: unknown
-  tools?: unknown
-  generationConfig?: unknown
-  responseSchema?: string
-  tokenBatchSize?: number
-}
-
-export function validateTurnRequest(request: TurnRequestLike): void {
+export function validateTurnRequest(request: LLMTurnRequest): void {
   validateTurnMessages(request.messages, 'runTurn messages', { requireNonEmpty: true })
   const hasTools = Array.isArray(request.tools) && request.tools.length > 0
   if (request.responseSchema !== undefined) {
@@ -547,7 +574,7 @@ export function validateTurnRequest(request: TurnRequestLike): void {
       )
     }
   }
-  if (hasTools) {
+  if (request.tools !== undefined && hasTools) {
     validateToolSchemas(request.tools, 'runTurn tools')
   }
   if (request.history !== undefined) {
@@ -556,12 +583,7 @@ export function validateTurnRequest(request: TurnRequestLike): void {
   validateGenerationConfig(request.generationConfig, 'runTurn generationConfig')
 }
 
-export function validateTurnContextOptions(options: {
-  instructions?: string
-  history?: unknown
-  tools?: unknown
-  generationConfig?: unknown
-}): void {
+export function validateTurnContextOptions(options: LLMTurnContextOptions): void {
   if (options.instructions !== undefined) {
     assertNonEmptyString(options.instructions, 'createContext instructions')
   }
@@ -574,13 +596,7 @@ export function validateTurnContextOptions(options: {
   validateGenerationConfig(options.generationConfig, 'createContext generationConfig')
 }
 
-export function validateTokenCountRequest(request: {
-  contextId?: string
-  instructions?: string
-  history?: unknown
-  tools?: unknown
-  messages?: unknown
-}): void {
+export function validateTokenCountRequest(request: LLMTokenCountRequest): void {
   if (request.contextId !== undefined) {
     assertNonEmptyString(request.contextId, 'countTokens contextId')
   }

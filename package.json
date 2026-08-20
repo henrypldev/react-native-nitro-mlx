@@ -1,10 +1,17 @@
 {
   "name": "react-native-nitro-mlx-monorepo",
-  "source": "src/index",
   "author": "Henry Paulino <me@henrypl.com> (https://github.com/corasan)",
+  "source": "src/index",
+  "workspaces": [
+    "package",
+    "example"
+  ],
   "scripts": {
     "postinstall": "tsc -p ./package --noEmit || exit 0;",
     "typescript": "bun tsc -p ./package --noEmit",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "bun --cwd ./package test",
     "test:ios-history-trim": "cd package && bun run test:ios-history-trim",
     "clean": "rm -rf package/tsconfig.tsbuildinfo node_modules example/node_modules example/ios package/node_modules package/lib example/.expo",
@@ -13,15 +20,13 @@
     "build": "bun --cwd package build",
     "release": "bun --cwd package release"
   },
-  "workspaces": [
-    "package",
-    "example"
-  ],
-  "devDependencies": {
-    "@biomejs/biome": "^2.3.8",
-    "typescript": "^5.9.3"
-  },
   "dependencies": {
     "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "1.79.0",
+    "oxfmt": "0.64.0",
+    "oxlint": "1.79.0",
+    "typescript": "^5.9.3"
   }
 }

@@ -13,9 +13,13 @@ import { LLM } from 'react-native-nitro-mlx'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { type BenchmarkResult, useBenchmark } from '../components/benchmark-context'
 
-function average(results: BenchmarkResult[], key: keyof BenchmarkResult): number {
+type NumericBenchmarkKey = {
+  [K in keyof BenchmarkResult]: BenchmarkResult[K] extends number ? K : never
+}[keyof BenchmarkResult]
+
+function average(results: BenchmarkResult[], key: NumericBenchmarkKey): number {
   if (results.length === 0) return 0
-  const sum = results.reduce((acc, r) => acc + (r[key] as number), 0)
+  const sum = results.reduce((acc, r) => acc + r[key], 0)
   return sum / results.length
 }
 

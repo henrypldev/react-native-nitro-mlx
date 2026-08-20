@@ -16,13 +16,13 @@ const MODEL_ID = MLXModel.Qwen3_ASR_0_6B_4bit
 
 type Status = 'idle' | 'loading' | 'ready' | 'listening' | 'transcribing'
 
-const statusText: Record<Status, string> = {
+const statusText = {
   idle: '',
   loading: 'Downloading & loading model...',
   ready: 'Ready',
   listening: 'Listening...',
   transcribing: 'Transcribing...',
-}
+} satisfies Record<Status, string>
 
 export default function STTScreen() {
   const [status, setStatus] = useState<Status>('idle')

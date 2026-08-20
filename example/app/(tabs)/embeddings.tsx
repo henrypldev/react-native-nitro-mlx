@@ -74,12 +74,12 @@ export default function EmbeddingsScreen() {
   const canCompare =
     status === 'ready' && textA.trim().length > 0 && textB.trim().length > 0
 
-  const statusText: Record<Status, string> = {
+  const statusText = {
     idle: '',
     loading: 'Downloading & loading model...',
     ready: 'Ready',
     embedding: 'Embedding...',
-  }
+  } satisfies Record<Status, string>
 
   if (status === 'idle' || status === 'loading') {
     return (

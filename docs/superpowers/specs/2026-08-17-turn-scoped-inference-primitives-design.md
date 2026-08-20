@@ -43,9 +43,9 @@ cancellation.
 The upstream Swift library already supports the shape we need.
 `MLXLMCommon.ChatSession` yields `Generation.toolCall(...)` to its caller when `toolDispatch`
 is `nil` (`ChatSession.swift:760` in 3.31.4, inside `streamMap` at `:567`), and
-`respond(to messages:)` is documented for exactly this pattern: *"Use this to continue an
+`respond(to messages:)` is documented for exactly this pattern: _"Use this to continue an
 existing session with non-user roles, such as one or more tool results, while preserving the
-session's KV cache."* The work is to expose that capability across the Nitro bridge, not to
+session's KV cache."_ The work is to expose that capability across the Nitro bridge, not to
 invent it.
 
 ## Prior art
@@ -82,7 +82,7 @@ Where this document deviates, the deviation is named and justified in place.
 - Concurrent MLX generation.
 - A background daemon, or any privileged iOS data integration.
 - Automatic eviction of Turn Contexts the caller still holds.
-- Guaranteed schema conformance in version one (see *Structured output*).
+- Guaranteed schema conformance in version one (see _Structured output_).
 - Persisting a Turn Context across app restarts.
 
 ## Domain language
@@ -99,17 +99,17 @@ Two distinctions matter:
 
 ## Current-state gaps
 
-| Concern | Current behavior | Required behavior |
-| --- | --- | --- |
-| Model residency | `load()` re-reads weights for any call | `load()` skips weight I/O for the loaded model ID |
-| Instructions | Singleton `systemPrompt` | Supplied per Turn Context or per turn |
-| History | One native managed history | Many isolated Turn Contexts |
-| Tools | Installed during `load()`, flat parameter list | Supplied per turn as JSON Schema |
-| Tool loop | Native executes handlers and continues | Tool Call Requests returned to the caller |
-| Prefill | Fresh session per unmanaged turn | Warm KV cache retained per Turn Context |
-| Token budget | Counts available only after generation | Counted before a turn from the loaded tokenizer |
-| Usage | One aggregate `tokenCount` | Prompt and completion counts reported separately |
-| Structured output | None | Schema-directed turn with a typed failure |
+| Concern           | Current behavior                               | Required behavior                                 |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------- |
+| Model residency   | `load()` re-reads weights for any call         | `load()` skips weight I/O for the loaded model ID |
+| Instructions      | Singleton `systemPrompt`                       | Supplied per Turn Context or per turn             |
+| History           | One native managed history                     | Many isolated Turn Contexts                       |
+| Tools             | Installed during `load()`, flat parameter list | Supplied per turn as JSON Schema                  |
+| Tool loop         | Native executes handlers and continues         | Tool Call Requests returned to the caller         |
+| Prefill           | Fresh session per unmanaged turn               | Warm KV cache retained per Turn Context           |
+| Token budget      | Counts available only after generation         | Counted before a turn from the loaded tokenizer   |
+| Usage             | One aggregate `tokenCount`                     | Prompt and completion counts reported separately  |
+| Structured output | None                                           | Schema-directed turn with a typed failure         |
 
 ## Design decisions
 
@@ -138,7 +138,7 @@ small Swift object plus its cache, not a second copy of the weights.
 The public interface exposes a context only as an ID with a `release()` method. Nothing in
 the TypeScript surface names `ChatSession`. That opacity is deliberate: the native
 implementation may later move below `ChatSession` to `TokenIterator` without a public
-change. See *Structured output* for the reason that matters.
+change. See _Structured output_ for the reason that matters.
 
 ### Serialized turns
 
@@ -193,9 +193,9 @@ package's own `ChatSession`, whose `AssistantChatMessage` already carries `toolC
 `MessageGenerator.addToolMetadata` at `Chat.swift:137-158`, which emits a `tool_calls` array
 that the model's own Jinja template consumes.
 
-`isError` follows the MCP rule: *"Any errors that originate from the tool SHOULD be reported
+`isError` follows the MCP rule: _"Any errors that originate from the tool SHOULD be reported
 inside the result object … not as a protocol-level error response. Otherwise, the LLM would
-not be able to see that an error occurred and self-correct."* A harness that returns a denied
+not be able to see that an error occurred and self-correct."_ A harness that returns a denied
 or failed tool as an ordinary string loses that signal.
 
 `name` is carried where a caller can supply it, but upstream `Chat.Message` has no field for
@@ -434,7 +434,7 @@ rather than as a stream of argument deltas. Per-token argument streaming — Ant
 first-class at OpenAI, Anthropic, and Vercel, and it is how a forced tool call would be
 implemented properly. `mlx-swift-lm 3.31.4` has no such parameter — `tool_choice`,
 `toolChoice`, `response_format`, and `grammar` are all absent from `Libraries/`. This is a
-stated gap, not an oversight, and it bounds what *Structured output* can promise.
+stated gap, not an oversight, and it bounds what _Structured output_ can promise.
 
 ## Thinking content
 
@@ -523,7 +523,7 @@ calling and structured outputs as a choice by purpose rather than old versus new
 
 Precise wording matters here. The synthetic tool is the only tool offered and the model is
 **asked** to call it. It is not forced, because no `toolChoice` mechanism exists upstream
-(see *Tool call contract*).
+(see _Tool call contract_).
 
 - A turn whose arguments do not parse resolves with `finishReason: 'failed'` and
   `stage: 'schema'`, so the caller can retry deliberately instead of guessing.
@@ -715,7 +715,7 @@ public interface.
 ### Deferred — real constrained decoding
 
 Not scheduled. Blocked on a tagged `mlx-swift-lm` release containing `MLXGuidedGeneration`
-and on resolving the `ChatSession` processor seam. See *Structured output*.
+and on resolving the `ChatSession` processor seam. See _Structured output_.
 
 ## Risks
 
