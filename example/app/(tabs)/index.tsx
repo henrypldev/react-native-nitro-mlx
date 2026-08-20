@@ -17,6 +17,7 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
 import {
   createTool,
+  type JsonObject,
   LLM,
   MLXModel,
   ModelManager,
@@ -76,13 +77,13 @@ type ToolCallBlockData = {
   type: 'tool_call'
   id?: string
   name: string
-  args: Record<string, unknown>
+  args: JsonObject
   completed?: boolean
 }
 
 type MessageBlock = ThinkingBlockData | ToolCallBlockData
 
-function parseThinkingBlocks(text: string): { thinking: string; content: string } {
+function parseThinkingBlocks(text: string) {
   const thinkRegex = /<think>([\s\S]*?)<\/think>/g
   const thinkingParts: string[] = []
   let content = text
@@ -110,11 +111,11 @@ type Message = {
   isUser: boolean
 }
 
-type DownloadManifest = {
-  modelId?: string
-  files?: string[]
-  completedAt?: string
-}
+const downloadManifestSchema = z.looseObject({
+  modelId: z.string().optional(),
+  files: z.array(z.string()).optional(),
+  completedAt: z.string().optional(),
+})
 
 type ManifestDebugState = {
   status: 'idle' | 'checking' | 'present' | 'missing' | 'error'
@@ -298,7 +299,7 @@ export default function ChatScreen() {
 
     try {
       const rawManifest = await ModelManager.getDownloadManifest(MODEL_ID)
-      const manifest = JSON.parse(rawManifest) as DownloadManifest
+      const manifest = downloadManifestSchema.parse(JSON.parse(rawManifest))
       const fileCount = manifest.files?.length ?? 0
       const completedLabel = manifest.completedAt
         ? new Date(manifest.completedAt).toLocaleString()

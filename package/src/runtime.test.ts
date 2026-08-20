@@ -34,7 +34,8 @@ describe('runtime guards', () => {
     expect(() => assertNonEmptyString('   ', 'modelId')).toThrow(
       'must be a non-empty string',
     )
-    expect(() => assertBoolean('true', 'debug')).toThrow('must be a boolean')
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
+    expect(() => assertBoolean('true' as never, 'debug')).toThrow('must be a boolean')
     expect(() => assertArrayBuffer(new ArrayBuffer(0), 'audio')).toThrow(
       'must not be empty',
     )
@@ -88,6 +89,7 @@ describe('runtime guards', () => {
     expect(validateLLMLoadOptions({ toolExecution: 'sequential' })?.toolExecution).toBe(
       'sequential',
     )
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
     expect(() => validateLLMLoadOptions({ toolExecution: 'other' } as never)).toThrow(
       "must be 'parallel' or 'sequential'",
     )
@@ -186,11 +188,8 @@ describe('stream event envelope mapping', () => {
   })
 
   it('returns null for an unrecognized kind', () => {
-    expect(
-      mapStreamEventEnvelope({
-        kind: 'not_a_kind',
-      } as unknown as Parameters<typeof mapStreamEventEnvelope>[0]),
-    ).toBeNull()
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
+    expect(mapStreamEventEnvelope({ kind: 'not_a_kind' } as never)).toBeNull()
   })
 })
 
@@ -207,11 +206,10 @@ describe('embeddings guards', () => {
   })
 
   it('rejects a non-boolean truncate option', () => {
-    expect(() =>
-      validateEmbeddingsEmbedOptions({
-        truncate: 'yes',
-      } as unknown as Parameters<typeof validateEmbeddingsEmbedOptions>[0]),
-    ).toThrow('must be a boolean')
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
+    expect(() => validateEmbeddingsEmbedOptions({ truncate: 'yes' } as never)).toThrow(
+      'must be a boolean',
+    )
   })
 
   it('accepts a batch at the size limit', () => {
@@ -228,9 +226,8 @@ describe('embeddings guards', () => {
 
   it('rejects empty or non-array batches', () => {
     expect(() => validateEmbeddingsBatch([])).toThrow('non-empty array')
-    expect(() => validateEmbeddingsBatch('hello' as unknown as string[])).toThrow(
-      'non-empty array',
-    )
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
+    expect(() => validateEmbeddingsBatch('hello' as never)).toThrow('non-empty array')
   })
 
   it('rejects batches with empty items', () => {
@@ -291,7 +288,10 @@ describe('STT audio contract', () => {
     expect(() => validateSTTAudio(new ArrayBuffer(0), 'STT audio')).toThrow(
       'must not be empty',
     )
-    expect(() => validateSTTAudio('audio', 'STT audio')).toThrow('must be an ArrayBuffer')
+    // SAFETY: deliberately mistyped input to exercise the runtime guard.
+    expect(() => validateSTTAudio('audio' as never, 'STT audio')).toThrow(
+      'must be an ArrayBuffer',
+    )
   })
 
   it('accepts transcribe options within the contract', () => {

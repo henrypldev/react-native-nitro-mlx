@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
 import {
+  type JsonObject,
   LLM,
   type LLMMessage,
   type LLMToolCall,
@@ -25,6 +26,7 @@ import {
   type ToolSchema,
 } from 'react-native-nitro-mlx'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { z } from 'zod'
 
 const MODEL_ID = MLXModel.Qwen3_1_7B_4bit
 const DEFAULT_MAX_STEPS = 6
@@ -117,10 +119,21 @@ function resetMockState(): void {
   mockSentMessages = []
 }
 
-function executeTool(
-  name: string,
-  args: Record<string, unknown>,
-): { content: string; isError: boolean } {
+type ToolExecutionResult = { content: string; isError: boolean }
+
+// Model-produced arguments are best-effort JSON: coerce what is salvageable
+// and fall back to sentinels the per-tool validation below reports on.
+const setTimerArgsSchema = z.object({
+  minutes: z.coerce.number().catch(Number.NaN),
+  label: z.string().catch('Timer'),
+})
+
+const sendMessageArgsSchema = z.object({
+  to: z.string().catch(''),
+  body: z.string().catch(''),
+})
+
+function executeTool(name: string, args: JsonObject): ToolExecutionResult {
   switch (name) {
     case 'get_current_time':
       return { content: new Date().toLocaleString(), isError: false }
@@ -129,17 +142,15 @@ function executeTool(
       return { content: TODAY_EVENTS.join('\n'), isError: false }
 
     case 'set_timer': {
-      const minutes = Number(args.minutes)
-      if (!Number.isFinite(minutes) || minutes <= 0) {
+      const parsed = setTimerArgsSchema.parse(args)
+      if (!Number.isFinite(parsed.minutes) || parsed.minutes <= 0) {
         return {
           content: `Invalid duration: "minutes" must be a positive number, got ${JSON.stringify(args.minutes)}`,
           isError: true,
         }
       }
-      const label =
-        typeof args.label === 'string' && args.label.trim().length > 0
-          ? args.label.trim()
-          : 'Timer'
+      const minutes = parsed.minutes
+      const label = parsed.label.trim().length > 0 ? parsed.label.trim() : 'Timer'
       mockTimers = [
         ...mockTimers,
         { id: Crypto.randomUUID(), minutes, label, createdAt: Date.now() },
@@ -148,8 +159,9 @@ function executeTool(
     }
 
     case 'send_message': {
-      const to = typeof args.to === 'string' ? args.to.trim() : ''
-      const body = typeof args.body === 'string' ? args.body.trim() : ''
+      const parsed = sendMessageArgsSchema.parse(args)
+      const to = parsed.to.trim()
+      const body = parsed.body.trim()
       if (!to || !body) {
         return {
           content: 'Invalid arguments: "to" and "body" must both be non-empty strings.',
@@ -264,7 +276,7 @@ type TranscriptEntry =
       id: string
       kind: 'tool'
       name: string
-      args: Record<string, unknown>
+      args: JsonObject
       result: string
       isError: boolean
     }

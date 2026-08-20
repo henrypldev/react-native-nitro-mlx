@@ -363,8 +363,8 @@ describe('fromWireOutcome', () => {
 
 describe('LLM.runTurn', () => {
   it('rejects an invalid request before touching native', async () => {
-    const { LLM } = await import('./llm')
-    await expect(LLM.runTurn({ messages: [] })).rejects.toThrow(
+    const { LLM: llm } = await import('./llm')
+    await expect(llm.runTurn({ messages: [] })).rejects.toThrow(
       /messages must not be empty/,
     )
   })

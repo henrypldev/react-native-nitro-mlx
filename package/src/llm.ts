@@ -1,4 +1,5 @@
 import { NitroModules } from 'react-native-nitro-modules'
+import type { JsonObject } from './json'
 import {
   assertBoolean,
   assertNonEmptyString,
@@ -42,7 +43,7 @@ export type Message = {
 
 export type ToolCallInfo = {
   name: string
-  arguments: Record<string, unknown>
+  arguments: JsonObject
 }
 
 export type ToolCallUpdate = {
@@ -129,7 +130,7 @@ export const LLM = {
         ? (name: string, argsJson: string) => {
             const toolCall = {
               name,
-              arguments: safeJsonParse<Record<string, unknown>>(argsJson, {}),
+              arguments: safeJsonParse<JsonObject>(argsJson, {}),
             }
             accumulatedToolCalls.push(toolCall)
             safeOnToolCall({
@@ -211,6 +212,8 @@ export const LLM = {
    * @returns Array of messages in the history
    */
   getHistory(): Message[] {
+    // SAFETY: the native history only ever stores the four chat roles, which
+    // the wire type cannot express beyond `string`.
     return getInstance().getHistory() as Message[]
   },
 
@@ -284,8 +287,8 @@ export const LLM = {
    * `load()` with this exact id performs no weight I/O.
    */
   get loadedModelId(): string | null {
-    const instance = getInstance()
-    return instance.isLoaded && instance.modelId !== '' ? instance.modelId : null
+    const llm = getInstance()
+    return llm.isLoaded && llm.modelId !== '' ? llm.modelId : null
   },
 
   /** Whether text is currently being generated */

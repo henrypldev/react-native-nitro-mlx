@@ -5,7 +5,7 @@ import { LLM, MLXModel } from 'react-native-nitro-mlx'
 const MODEL = MLXModel.Qwen3_1_7B_4bit
 const PROMPT = 'List three facts about the Moon.'
 
-async function timed(label: string, fn: () => Promise<unknown>): Promise<string> {
+async function timed<T>(label: string, fn: () => Promise<T>): Promise<string> {
   const start = performance.now()
   await fn()
   return `${label}: ${(performance.now() - start).toFixed(0)} ms`

@@ -103,13 +103,13 @@ export default function TTSScreen() {
     }
   }
 
-  const statusText: Record<Status, string> = {
+  const statusText = {
     idle: '',
     loading: 'Downloading & loading model...',
     ready: 'Ready',
     generating: 'Generating audio...',
     playing: 'Playing...',
-  }
+  } satisfies Record<Status, string>
 
   const canGenerate = status === 'ready' && text.trim().length > 0
 

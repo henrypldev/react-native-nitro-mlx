@@ -1,60 +1,46 @@
 import type { AnyMap } from 'react-native-nitro-modules'
-import type { z } from 'zod'
+import { z } from 'zod'
+import type { JsonObject } from './json'
 import type { ToolDefinition, ToolParameter, ToolParameterType } from './specs/LLM.nitro'
 
-type ZodObjectSchema = z.ZodObject<z.core.$ZodShape>
+type ZodObjectSchema = z.ZodObject
 type InferArgs<T extends ZodObjectSchema> = z.infer<T>
 
 export interface TypeSafeToolDefinition<T extends ZodObjectSchema> {
   name: string
   description: string
   arguments: T
-  handler: (args: InferArgs<T>) => Promise<Record<string, unknown>>
+  handler: (args: InferArgs<T>) => Promise<JsonObject>
 }
 
-function getZodTypeString(zodType: z.ZodType): ToolParameterType {
-  const typeName = zodType._zod.def.type
-  switch (typeName) {
-    case 'string':
-      return 'string'
-    case 'number':
-    case 'int':
-      return 'number'
-    case 'boolean':
-      return 'boolean'
-    case 'array':
-      return 'array'
-    case 'object':
-      return 'object'
-    case 'optional':
-      return getZodTypeString((zodType as z.ZodOptional<z.ZodType>)._zod.def.innerType)
-    case 'default':
-      return getZodTypeString((zodType as z.ZodDefault<z.ZodType>)._zod.def.innerType)
-    default:
-      return 'string'
-  }
-}
+const toolParameterTypeSchema = z.enum(['string', 'number', 'boolean', 'array', 'object'])
 
-function isZodOptional(zodType: z.ZodType): boolean {
-  const typeName = zodType._zod.def.type
-  return typeName === 'optional' || typeName === 'default'
+const jsonSchemaPropertySchema = z.looseObject({
+  type: z.string().optional(),
+  description: z.string().optional(),
+})
+
+const objectJsonSchemaSchema = z.looseObject({
+  properties: z.record(z.string(), jsonSchemaPropertySchema).optional(),
+  required: z.array(z.string()).optional(),
+})
+
+function toToolParameterType(type: string | undefined): ToolParameterType {
+  const parsed = toolParameterTypeSchema.safeParse(type === 'integer' ? 'number' : type)
+  return parsed.success ? parsed.data : 'string'
 }
 
 function zodSchemaToParameters(schema: ZodObjectSchema): ToolParameter[] {
-  const shape = schema._zod.def.shape
-  const parameters: ToolParameter[] = []
-
-  for (const [key, zodType] of Object.entries(shape)) {
-    const zType = zodType as z.ZodType
-    parameters.push({
-      name: key,
-      type: getZodTypeString(zType),
-      description: zType.description ?? '',
-      required: !isZodOptional(zType),
-    })
-  }
-
-  return parameters
+  const jsonSchema = objectJsonSchemaSchema.parse(
+    z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }),
+  )
+  const required = new Set(jsonSchema.required ?? [])
+  return Object.entries(jsonSchema.properties ?? {}).map(([name, property]) => ({
+    name,
+    type: toToolParameterType(property.type),
+    description: property.description ?? '',
+    required: required.has(name),
+  }))
 }
 
 export function createTool<T extends ZodObjectSchema>(
@@ -65,10 +51,8 @@ export function createTool<T extends ZodObjectSchema>(
     description: definition.description,
     parameters: zodSchemaToParameters(definition.arguments),
     handler: async (args: AnyMap) => {
-      const argsObj = args as unknown as Record<string, unknown>
-      const parsedArgs = definition.arguments.parse(argsObj)
-      const result = await definition.handler(parsedArgs)
-      return result as unknown as AnyMap
+      const parsedArgs = definition.arguments.parse(args)
+      return definition.handler(parsedArgs)
     },
   }
 }

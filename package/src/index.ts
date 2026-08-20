@@ -79,6 +79,7 @@ export type {
   TTSGenerateOptions,
   TTSLoadOptions,
 } from './specs/TTS.nitro'
+export type { JsonObject, JsonValue } from './json'
 export { STT } from './stt'
 export { createTool, type TypeSafeToolDefinition } from './tool-utils'
 export { TTS } from './tts'

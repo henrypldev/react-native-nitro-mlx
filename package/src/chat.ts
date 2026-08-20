@@ -1,5 +1,6 @@
+import type { JsonObject } from './json'
 import { LLM } from './llm'
-import { safeJsonParse } from './runtime'
+import { assertNonEmptyString, safeJsonParse } from './runtime'
 import type {
   GenerationStats,
   LLMContextConfig,
@@ -23,7 +24,7 @@ export type ChatToolCallStatus = 'pending' | 'executing' | 'completed' | 'failed
 export interface ChatToolCall {
   id: string
   name: string
-  arguments: Record<string, unknown>
+  arguments: JsonObject
   status: ChatToolCallStatus
   result?: unknown
   error?: string
@@ -138,13 +139,6 @@ export interface SendMessageOptions {
 
 export type ChatSessionListener = (state: ChatSessionState) => void
 
-function assertNonEmpty(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new TypeError(`${ERROR_PREFIX} ${name} must be a non-empty string.`)
-  }
-  return value
-}
-
 /**
  * High-level chat session built on top of the low-level `LLM` singleton.
  *
@@ -166,7 +160,7 @@ export class ChatSession {
   private _idCounter = 0
 
   constructor(options: ChatSessionOptions) {
-    assertNonEmpty(options.modelId, 'ChatSession modelId')
+    assertNonEmptyString(options.modelId, 'ChatSession modelId')
     this._options = options
     this._systemPrompt = options.systemPrompt
     this._state = this._createInitialState()
@@ -272,7 +266,7 @@ export class ChatSession {
    * before `load()` or after `reset()`.
    */
   setSystemPrompt(prompt: string): void {
-    assertNonEmpty(prompt, 'systemPrompt')
+    assertNonEmptyString(prompt, 'systemPrompt')
     this._systemPrompt = prompt
     if (this._isLoaded) {
       LLM.systemPrompt = prompt
@@ -338,6 +332,8 @@ export class ChatSession {
     if (!current) {
       return false
     }
+    // SAFETY: `current` is a valid ChatMessage and the spread pins its `id`
+    // and `role` discriminant, so the merge stays inside the same union arm.
     const next = {
       ...current,
       ...patch,
@@ -366,7 +362,7 @@ export class ChatSession {
     content: string,
     options?: SendMessageOptions,
   ): Promise<AssistantChatMessage> {
-    assertNonEmpty(content, 'sendMessage content')
+    assertNonEmptyString(content, 'sendMessage content')
     if (this._state.isGenerating) {
       throw new Error(`${ERROR_PREFIX} A generation is already in progress.`)
     }
@@ -454,7 +450,7 @@ export class ChatSession {
           }
           break
         case 'tool_call_start': {
-          const args = safeJsonParse<Record<string, unknown>>(event.arguments, {})
+          const args = safeJsonParse<JsonObject>(event.arguments, {})
           const toolCall: ChatToolCall = {
             id: event.id,
             name: event.name,
@@ -610,6 +606,8 @@ export class ChatSession {
   private _normalizeMessage(init: ChatMessageInit): ChatMessage {
     const id = init.id ?? this._nextId(init.role)
     const createdAt = init.createdAt ?? Date.now()
+    // SAFETY: ChatMessageInit is ChatMessage minus `id`/`createdAt`; filling
+    // exactly those two fields completes the union arm selected by `init.role`.
     return { ...init, id, createdAt } as ChatMessage
   }
 
