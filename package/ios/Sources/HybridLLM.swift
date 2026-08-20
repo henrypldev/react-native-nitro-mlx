@@ -1469,6 +1469,40 @@ private final class HybridLLMCore {
         }
     }
 
+    /// What a `responseSchema` turn resolved to, read off the accumulation
+    /// the same pass already folded — never a distinct model round-trip.
+    private enum StructuredOutputResult {
+        case success(content: String)
+        case failure(message: String)
+
+        /// The warm mirror's assistant turn on success: the JSON *is* the
+        /// answer, so the transcript reads like the model said it directly
+        /// rather than carrying the synthetic tool-call wrapper. `nil` on
+        /// failure defers to the caller's own `progress.content` (the
+        /// prose), which is already what actually happened.
+        var mirroredContent: String? {
+            if case .success(let content) = self { return content }
+            return nil
+        }
+    }
+
+    /// Inspects the one tool call a schema turn's stream produced, if any.
+    /// A model that answers in prose instead never reaches `.toolCall` in
+    /// `collectTurn`, so `accumulation.toolCalls` is empty — the same
+    /// failure as a call to any other name.
+    private func structuredOutputResult(from accumulation: TurnAccumulation) -> StructuredOutputResult {
+        guard let call = accumulation.toolCalls.first,
+            call.function.name == ToolSchemaPlanner.structuredOutputToolName
+        else {
+            return .failure(message: "Model did not call the structured output tool")
+        }
+        let arguments = convertToolCallArguments(call.function.arguments)
+        guard let argumentsData = try? JSONSerialization.data(withJSONObject: arguments) else {
+            return .failure(message: "Structured output arguments did not serialize")
+        }
+        return .success(content: String(decoding: argumentsData, as: UTF8.self))
+    }
+
     /// Runs one Generation Turn. Tool Call Requests come back to the caller
     /// instead of being executed here.
     ///
@@ -1485,19 +1519,24 @@ private final class HybridLLMCore {
         try ensureNotGenerating()
 
         let plan = try planTurn(for: request)
-        guard request.responseSchema == nil else {
-            throw LLMError.generationFailed(
-                stage: GenerationStage.prepare.rawValue,
-                message: "responseSchema turns land in a later commit"
-            )
-        }
 
         // Mapped before the switch, because the warm branch mutates the
         // registry and every rejection belongs in preflight.
         let inputMessages = try chatMessagesFromTurnMessages(request.messages)
 
+        // Built once so both branches below offer the identical spec; the
+        // planner already guarantees no other tools are in play whenever
+        // this is non-nil (schemaExclusiveWithTools).
+        let schemaToolSpec: ToolSpec? = try request.responseSchema.map {
+            try syntheticToolSpec(responseSchema: $0)
+        }
+
         let session: ChatSession
         let warm: WarmTurnCommit?
+        // Restores a warm session's tools after the pass, win or lose: the
+        // session is retained in the registry, so a schema turn's borrowed
+        // tool must not leak into the next turn on the same context.
+        var restoreWarmTools: (() -> Void)?
         switch plan.mode {
         case .cold:
             session = ChatSession(
@@ -1505,7 +1544,7 @@ private final class HybridLLMCore {
                 instructions: request.instructions,
                 history: try chatMessagesFromTurnMessages(request.history ?? []),
                 generateParameters: buildGenerateParameters(from: request.generationConfig),
-                tools: try turnToolSpecs(from: request.tools ?? [])
+                tools: try schemaToolSpec.map { [$0] } ?? turnToolSpecs(from: request.tools ?? [])
             )
             warm = nil
         case .warm:
@@ -1525,6 +1564,18 @@ private final class HybridLLMCore {
                 contextId: contextId,
                 cachedPromptTokens: prepared.promptTokensSeen
             )
+            // `ChatSession.tools` is a plain `var`, so a warm context can
+            // take a per-turn tool despite being fixed at creation for the
+            // ordinary tool-calling path. The planner only reaches here with
+            // a schema when the context itself declared no tools
+            // (schemaExclusiveWithTools), so `previousTools` is always nil —
+            // captured anyway so a future coupling change can't leak a
+            // stale list into the next turn.
+            if let schemaToolSpec {
+                let previousTools = session.tools
+                session.tools = [schemaToolSpec]
+                restoreWarmTools = { session.tools = previousTools }
+            }
         }
 
         let emitter = StreamEventEmitter(callback: onEvent)
@@ -1540,12 +1591,16 @@ private final class HybridLLMCore {
                 session: session,
                 inputMessages: inputMessages,
                 sink: sink,
-                warm: warm
+                warm: warm,
+                expectsStructuredOutput: schemaToolSpec != nil
             )
         }
         let generationID = try generationTasks.begin(task)
         emitter.emitGenerationStart()
-        defer { finishGeneration(id: generationID) }
+        defer {
+            finishGeneration(id: generationID)
+            restoreWarmTools?()
+        }
         return await task.value
     }
 
@@ -1627,6 +1682,27 @@ private final class HybridLLMCore {
                     message: "tool \(tool.name): \(toolSchemaFailureMessage(error))"
                 )
             }
+        }
+    }
+
+    /// Projects the single synthetic tool (Task 7) onto the same
+    /// `Sendable`-typed `ToolSpec` shape `toolSpec(from:)` builds for a
+    /// declared tool — `ToolSchemaPlanner.syntheticTool` only knows
+    /// `[String: Any]`, which upstream's `tools` array cannot hold directly.
+    private func syntheticToolSpec(responseSchema: String) throws -> ToolSpec {
+        do {
+            let synthetic = try ToolSchemaPlanner.syntheticTool(responseSchema: responseSchema)
+            let function: [String: any Sendable] = [
+                "name": synthetic.name,
+                "description": synthetic.description,
+                "parameters": sendableJSON(jsonValue(from: synthetic.parameters)),
+            ]
+            return ["type": "function", "function": function]
+        } catch let error as ToolSchemaError {
+            throw LLMError.generationFailed(
+                stage: GenerationStage.prepare.rawValue,
+                message: "responseSchema: \(toolSchemaFailureMessage(error))"
+            )
         }
     }
 
@@ -1719,7 +1795,8 @@ private final class HybridLLMCore {
         session: ChatSession,
         inputMessages: [Chat.Message],
         sink: GenerationSink,
-        warm: WarmTurnCommit?
+        warm: WarmTurnCommit?,
+        expectsStructuredOutput: Bool = false
     ) async -> LLMTurnOutcome {
         let startTime = Date()
         let progress = GenerationProgress()
@@ -1728,6 +1805,7 @@ private final class HybridLLMCore {
         func outcome(
             _ finishReason: LLMTurnFinishReason,
             rawFinishReason: String? = nil,
+            content: String? = nil,
             toolCalls: [LLMToolCallWire] = [],
             error: String? = nil,
             stage: String? = nil
@@ -1735,7 +1813,7 @@ private final class HybridLLMCore {
             LLMTurnOutcome(
                 finishReason: finishReason,
                 rawFinishReason: rawFinishReason,
-                content: progress.content,
+                content: content ?? progress.content,
                 thinking: sink.thinkingContent.isEmpty ? nil : sink.thinkingContent,
                 toolCalls: toolCalls,
                 usage: LLMTurnUsage(
@@ -1761,13 +1839,38 @@ private final class HybridLLMCore {
                 into: accumulation
             )
 
+            let structuredOutput = expectsStructuredOutput
+                ? structuredOutputResult(from: accumulation)
+                : nil
+
+            // The synthetic tool call is a request/response implementation
+            // detail, never a Tool Call Request the caller learns about
+            // (toolCalls is always [] on a schema outcome) — clearing it
+            // before the warm mirror sees it keeps `pendingToolCallIds` in
+            // sync with what the caller actually received. Otherwise a
+            // committed id nobody was told about would deadlock every later
+            // turn on this Turn Context (`incompleteToolResults`).
+            if structuredOutput != nil {
+                accumulation.toolCalls = []
+                accumulation.wireToolCalls = []
+            }
+
             if let warm {
                 commitWarmTurn(
                     warm,
                     inputMessages: inputMessages,
-                    content: progress.content,
+                    content: structuredOutput?.mirroredContent ?? progress.content,
                     accumulation: accumulation
                 )
+            }
+
+            if let structuredOutput {
+                switch structuredOutput {
+                case .success(let content):
+                    return outcome(.completed, rawFinishReason: "structured_output", content: content)
+                case .failure(let message):
+                    return outcome(.failed, error: message, stage: "schema")
+                }
             }
 
             if !accumulation.wireToolCalls.isEmpty {
