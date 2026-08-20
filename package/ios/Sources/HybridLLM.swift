@@ -2054,7 +2054,15 @@ private final class HybridLLMCore {
                 }
                 return .assistant(message.content, toolCalls: try parseWireToolCalls(json))
             case "tool":
-                return .tool(message.content, id: message.toolCallId)
+                // The model has no other signal that a tool result is a
+                // failure (`isError` never crosses the chat template on its
+                // own) — this is the one place every route (cold turn,
+                // warm turn, Turn Context creation, `countTokens`) renders a
+                // tool message, so prefixing here is what actually makes
+                // the wire contract's "the model must see failures" true.
+                let content =
+                    message.isError == true ? "Error: \(message.content)" : message.content
+                return .tool(content, id: message.toolCallId)
             default:
                 throw LLMError.generationFailed(
                     stage: GenerationStage.prepare.rawValue,
