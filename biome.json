@@ -9,7 +9,8 @@
       "!**/ios",
       "!**/android",
       "!**/nitrogen/generated",
-      "!**/.agents"
+      "!**/.agents",
+      "!tools/oxlint/anti-slop"
     ]
   },
   "formatter": {
