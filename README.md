@@ -187,11 +187,16 @@ owns both.
 
 Two rules keep a loop correct:
 
-- Branch on `turn.toolCalls.length`, not on `finishReason`. The tool-call array
-  tells you whether the model wants to act; `finishReason` is for diagnostics.
+- Branch on `turn.toolCalls.length`, not on `finishReason === 'tool_calls'`.
+  The tool-call array tells you whether the model wants to act. Read
+  `finishReason` for the other outcomes: `'completed'`, `'stopped'`,
+  `'failed'`, `'length'`, and so on.
 - Return one `tool` message per call, keyed by `toolCallId`. The model matches
   each result to its request by that ID, so every call needs a result — even a
-  failed one. Send failures back with `isError: true` so the model can recover.
+  failed one. Set `isError: true` on failure: the library prefixes the
+  rendered content with `"Error: "` so the model sees the failure on every
+  path. Put the failure reason in `content` yourself — the prefix marks the
+  failure, `content` explains it.
 
 ```typescript
 import { LLM, type LLMMessage, type LLMTurnOutcome, type ToolSchema } from 'react-native-nitro-mlx'
@@ -230,8 +235,8 @@ async function runAgent(goal: string, maxSteps = 6): Promise<LLMTurnOutcome> {
 
       if (turn.toolCalls.length === 0) {
         // No tool calls: check finishReason for why. 'completed' is a final
-        // answer; 'stopped' | 'failed' | 'length' did not finish — read
-        // turn.error (and turn.stage when finishReason is 'failed').
+        // answer; 'stopped', 'failed', 'length', and others did not finish —
+        // read turn.error (and turn.stage when finishReason is 'failed').
         return turn
       }
 
@@ -307,20 +312,20 @@ On success, `finishReason` is `'completed'`, `rawFinishReason` is
 empty.
 
 On failure — the model answered in prose, called a different tool, or its
-arguments did not parse — `finishReason` is `'failed'` and `stage` is
+arguments did not serialize — `finishReason` is `'failed'` and `stage` is
 `'schema'`. `content` holds whatever prose the model produced. Retry is your
 call; the package does not retry on its own.
 
-A failed schema turn on a warm Turn Context leaves no trace. The context's
-transcript and cache stay untouched, so the next turn on that context
-rebuilds cleanly, at the cost of one re-prefill.
+A failed schema turn on a warm Turn Context leaves the transcript untouched.
+The live session's cache from the failed attempt is discarded, and the next
+turn rebuilds it from the transcript — a one-time re-prefill cost.
 
 For best results, restate the expected shape in your instructions, not only
 in the schema.
 
 ```typescript
+// A cold turn: responseSchema works with or without a Turn Context.
 const outcome = await LLM.runTurn({
-  contextId: ctx.id,
   messages: [{ role: 'user', content: 'Extract the event: Lunch with Sam at noon.' }],
   responseSchema: JSON.stringify({
     type: 'object',
