@@ -12,7 +12,7 @@ Date: 2026-08-11 · Ticket: [OSS-31](https://linear.app/henry-pl-llc/issue/OSS-3
 2. **No batch limit.** `embedBatch` accepts arrays of any size. The padded tensor is
    `batch × longest`, which is unbounded in both dimensions.
 3. **Wrong padding and mask.** Padding uses `eosTokenId ?? 0`, and the attention mask is
-   `padded .!= padToken`. This masks *genuine* EOS (or id-0) tokens inside real content,
+   `padded .!= padToken`. This masks _genuine_ EOS (or id-0) tokens inside real content,
    which corrupts pooled embeddings.
 
 ## Approaches considered

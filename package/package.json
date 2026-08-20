@@ -2,11 +2,47 @@
   "name": "react-native-nitro-mlx",
   "version": "0.5.1",
   "description": "Nitro module package",
+  "keywords": [
+    "ai",
+    "apple",
+    "expo",
+    "llm",
+    "mlx",
+    "mlx-swift",
+    "nitro",
+    "nitro-module",
+    "react-native",
+    "react-native-nitro-mlx"
+  ],
+  "homepage": "https://github.com/corasan/react-native-nitro-mlx#readme",
+  "bugs": "https://github.com/corasan/react-native-nitro-mlx/issues",
+  "license": "MIT",
+  "author": "Henry Paulino",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/corasan/react-native-nitro-mlx.git"
+  },
+  "source": "src/index",
+  "files": [
+    "src",
+    "lib",
+    "nitrogen",
+    "cpp",
+    "ios/**/*.h",
+    "ios/**/*.m",
+    "ios/**/*.mm",
+    "ios/**/*.cpp",
+    "ios/**/*.swift",
+    "*.podspec",
+    "README.md"
+  ],
   "main": "./lib/module/index.js",
   "module": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "react-native": "src/index",
-  "source": "src/index",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "rm -rf lib && bun typecheck && bob build",
     "typecheck": "tsc --noEmit",
@@ -27,41 +63,8 @@
     "specs": "bun typecheck && nitrogen --logLevel=\\\"debug\\\" && bun run build",
     "specs:pod": "bun specs && bun --cwd ../example pod"
   },
-  "keywords": [
-    "react-native",
-    "nitro",
-    "nitro-module",
-    "expo",
-    "llm",
-    "mlx",
-    "mlx-swift",
-    "apple",
-    "react-native-nitro-mlx",
-    "ai"
-  ],
-  "files": [
-    "src",
-    "lib",
-    "nitrogen",
-    "cpp",
-    "ios/**/*.h",
-    "ios/**/*.m",
-    "ios/**/*.mm",
-    "ios/**/*.cpp",
-    "ios/**/*.swift",
-    "*.podspec",
-    "README.md"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/corasan/react-native-nitro-mlx.git"
-  },
-  "author": "Henry Paulino",
-  "license": "MIT",
-  "bugs": "https://github.com/corasan/react-native-nitro-mlx/issues",
-  "homepage": "https://github.com/corasan/react-native-nitro-mlx#readme",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+  "dependencies": {
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@release-it/bumper": "^7.0.5",
@@ -76,8 +79,18 @@
     "react-native-nitro-modules": "*",
     "zod": ">=4.0.0"
   },
-  "dependencies": {
-    "zod": "^4.3.5"
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      "typescript"
+    ]
   },
   "release-it": {
     "npm": false,
@@ -127,18 +140,5 @@
         }
       }
     }
-  },
-  "react-native-builder-bob": {
-    "source": "src",
-    "output": "lib",
-    "targets": [
-      [
-        "module",
-        {
-          "esm": true
-        }
-      ],
-      "typescript"
-    ]
   }
 }
