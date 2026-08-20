@@ -76,22 +76,22 @@ OpenAI: "Under the hood, strict mode works by leveraging our structured outputs 
 converts a JSON schema to GBNF and masks logits to `-INFINITY` for every rejected token
 (`src/llama-grammar.cpp:1353-1393`), and applies the same machinery to tool-call syntax with lazy
 triggers (`common/chat.cpp:1139-1160`). Where a grammar engine is absent, the forced tool call is
-what frameworks reach for — and it is the *default*, not a legacy path. See "Structured output"
+what frameworks reach for — and it is the _default_, not a legacy path. See "Structured output"
 below.
 
 ## Point-by-point comparison
 
-| Spec decision | Convention | Verdict |
-| --- | --- | --- |
-| Return tool calls to the caller, execute none | Universal | **Follows.** No source deviates. |
-| Named retained context with a warm KV cache | Optional everywhere; explicitly named only by OpenAI Conversations | **Follows, and is better-suited on-device.** |
-| One resident model, serialized turns | llama-server serves N slots concurrently over one model | **Deviates. Justified** by memory and thermals on a phone. |
-| Tool calls as `{id, name, arguments: string}` | Split: OpenAI/Vercel use a string; Anthropic/Ollama/MCP/LangChain use an object | **Defensible, but wrong here.** See below. |
-| Tool results as a `tool` role message keyed by call id | Universal in shape; Anthropic uses a content block instead of a role | **Follows.** |
-| `completed / tool_calls / length / stopped / unloaded / superseded / failed` | Provider vocabularies differ; normalizers keep a raw passthrough | **Follows, with one gap.** |
-| Token counting before a turn | Server endpoints now exist at Anthropic, OpenAI, and llama.cpp | **Follows.** |
-| Structured output via a forced tool call | The default in Pydantic AI; the fallback wherever no grammar engine exists | **Follows.** |
-| No agent loop in the library | Universal | **Follows.** |
+| Spec decision                                                                | Convention                                                                      | Verdict                                                    |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Return tool calls to the caller, execute none                                | Universal                                                                       | **Follows.** No source deviates.                           |
+| Named retained context with a warm KV cache                                  | Optional everywhere; explicitly named only by OpenAI Conversations              | **Follows, and is better-suited on-device.**               |
+| One resident model, serialized turns                                         | llama-server serves N slots concurrently over one model                         | **Deviates. Justified** by memory and thermals on a phone. |
+| Tool calls as `{id, name, arguments: string}`                                | Split: OpenAI/Vercel use a string; Anthropic/Ollama/MCP/LangChain use an object | **Defensible, but wrong here.** See below.                 |
+| Tool results as a `tool` role message keyed by call id                       | Universal in shape; Anthropic uses a content block instead of a role            | **Follows.**                                               |
+| `completed / tool_calls / length / stopped / unloaded / superseded / failed` | Provider vocabularies differ; normalizers keep a raw passthrough                | **Follows, with one gap.**                                 |
+| Token counting before a turn                                                 | Server endpoints now exist at Anthropic, OpenAI, and llama.cpp                  | **Follows.**                                               |
+| Structured output via a forced tool call                                     | The default in Pydantic AI; the fallback wherever no grammar engine exists      | **Follows.**                                               |
+| No agent loop in the library                                                 | Universal                                                                       | **Follows.**                                               |
 
 ### Returning tool calls instead of executing them
 
@@ -126,7 +126,7 @@ will be executed by the provider. If this flag is not set or is false, the tool 
 by the client". This package will have both kinds simultaneously — the legacy path executes tools
 natively, `runTurn` does not — and nothing in the proposed outcome type says which.
 
-Separately, note what does *not* cross the seam. In Vercel, Pydantic AI, and LangChain, the tool
+Separately, note what does _not_ cross the seam. In Vercel, Pydantic AI, and LangChain, the tool
 definition handed to the model carries **no callable** — Vercel's `LanguageModelV4FunctionTool` is
 `{type, name, description?, inputSchema, inputExamples?, strict?, providerOptions?}` and its own
 comment says "this is **not** the user-facing tool definition"; Pydantic AI's `ToolDefinition` is
@@ -145,7 +145,7 @@ one or more tool results, while preserving the session's KV cache", with the acc
 this method for subsequent tool or agent turns to avoid repeatedly pre-filling the accumulated
 transcript" (`ChatSession.swift:448-456`).
 
-What is worth internalising is *how* that cache is a transcript. `streamMap` clears its message array
+What is worth internalising is _how_ that cache is a transcript. `streamMap` clears its message array
 immediately after templating (`ChatSession.swift:641`); the session's history exists only as KV
 tensors, and the assistant's generated tokens land there because generation feeds them back. There is
 no `[Chat.Message]` transcript to inspect after the first pass. This makes the risk register's "the
@@ -186,11 +186,11 @@ Ollama (`ToolCallFunctionArguments` is an ordered map, `api/types.go:221-234`), 
 `ToolCall.args: dict[str, Any]`.
 
 The pattern behind the split is consistent: **the string form is the streaming/provider form, and the
-object form is the settled/consumer form.** Anthropic says it outright — "the deltas are *partial
-JSON strings*, whereas the final `tool_use.input` is always an *object*"
+object form is the settled/consumer form.** Anthropic says it outright — "the deltas are _partial
+JSON strings_, whereas the final `tool_use.input` is always an _object_"
 ([streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)). LangChain models the
-same distinction as two types. Vercel keeps the string at the provider seam and parses *and
-schema-validates* at the core seam in one step, throwing `InvalidToolInputError` on failure
+same distinction as two types. Vercel keeps the string at the provider seam and parses _and
+schema-validates_ at the core seam in one step, throwing `InvalidToolInputError` on failure
 (`packages/ai/src/generate-text/parse-tool-call.ts:191-225`). Pydantic AI is the one framework that
 refuses to choose — `args: str | dict[str, Any] | None` with `args_as_dict()` / `args_as_json_str()`
 accessors, because "the exact bytes the model produced (key order, whitespace) matter for prompt
@@ -199,7 +199,7 @@ caching" (`pydantic_ai/messages.py:2160-2164`, `:2235`).
 `runTurn` is a settled, non-streaming outcome. By that rule it should carry an object.
 
 One counter-consideration, which turns out not to apply here: every framework preserves the raw
-string on the *failure* path — Vercel's `InvalidToolInputError.toolInput`, LangChain's
+string on the _failure_ path — Vercel's `InvalidToolInputError.toolInput`, LangChain's
 `InvalidToolCall.args: str | None` alongside `error`, Pydantic AI's `{'INVALID_JSON': '<raw>'}`
 degradation. That is the strongest argument for a string. But it is unavailable here for the same
 reason the "as emitted by the model" claim is false: `ToolCallProcessor` parses first, so a
@@ -218,7 +218,7 @@ malformed output — are both unavailable. What remains is a lossy round trip th
 immediately reverses with `JSON.parse`.
 
 The precedent for a string in this package (`ToolCallStartEvent.arguments`,
-`package/src/specs/LLM.nitro.ts:64-69`) is a *streaming* event, which is exactly where convention puts
+`package/src/specs/LLM.nitro.ts:64-69`) is a _streaming_ event, which is exactly where convention puts
 the string. It does not carry over to the terminal outcome.
 
 ### Tool results keyed by call id
@@ -240,12 +240,12 @@ Two fields the convention has that the spec drops:
   not carry one, so this is a real limitation rather than an omission the package can fix alone, but
   it should be stated.
 - **An error flag.** MCP, LangChain, Anthropic, Vercel, and Pydantic AI all distinguish a failed tool
-  result from a successful one *in band*: `CallToolResult.isError`; `ToolMessage.status: "success" |
-  "error"`; `tool_result.is_error`; Vercel's typed `ToolResultOutput` variants (`text`, `json`,
+  result from a successful one _in band_: `CallToolResult.isError`; `ToolMessage.status: "success" |
+"error"`; `tool_result.is_error`; Vercel's typed `ToolResultOutput` variants (`text`, `json`,
   `error-text`, `error-json`, `execution-denied`, `content`); and Pydantic AI's four-value
   `ToolReturnPart.outcome: 'success' | 'failed' | 'denied' | 'interrupted'`. MCP's schema states the
   rationale directly: "Any errors that originate from the tool SHOULD be reported inside the result
-  object, with `isError` set to true, *not* as an MCP protocol-level error response. Otherwise, the
+  object, with `isError` set to true, _not_ as an MCP protocol-level error response. Otherwise, the
   LLM would not be able to see that an error occurred and self-correct." Pydantic AI's docstring adds
   the distinction that matters most for an approval-gated harness: "Only `'failed'` is mapped to a
   provider's native error channel… A denial is a deliberate policy decision rather than a runtime
@@ -361,14 +361,14 @@ Two caveats the spec should absorb.
 
 First, "requires the model to call it" overstates what is available. There is no `tool_choice` in
 `mlx-swift-lm`, and `additionalContext` feeds arbitrary template variables, not a forcing mechanism.
-The synthetic tool can be *offered as the only tool* and asked for in the prompt; it cannot be
-*required*. Every source that offers real forcing does so as a first-class request parameter
+The synthetic tool can be _offered as the only tool_ and asked for in the prompt; it cannot be
+_required_. Every source that offers real forcing does so as a first-class request parameter
 (`tool_choice: "required"` or a named tool at OpenAI; `{"type":"tool","name":...}` at Anthropic;
 `{type:'required'}` / `{type:'tool',toolName}` in Vercel). llama.cpp's grammar for tool calls is
-*non-lazy* exactly when `tool_choice: required` is set (`common/chat.cpp:1139-1160`) — forcing and
+_non-lazy_ exactly when `tool_choice: required` is set (`common/chat.cpp:1139-1160`) — forcing and
 constraining are the same act there.
 
-Second, no source claims constrained decoding guarantees a *correct* answer, only a well-formed one.
+Second, no source claims constrained decoding guarantees a _correct_ answer, only a well-formed one.
 Google states it most plainly: "While output is syntactically correct JSON, always validate values in
 your application"
 ([ai.google.dev/gemini-api/docs/structured-output](https://ai.google.dev/gemini-api/docs/structured-output)).
@@ -381,19 +381,19 @@ regardless.
 Comparable libraries stop where this one stops, and several stop earlier. `llama-server` stops at
 returning `tool_calls` and actively warns against using its execution endpoint downstream. Ollama's
 HTTP server stops there too; its agent loop, approval prompter, `MaxToolRounds` guard and compactor
-all live in `agent/`, reachable only from `cmd/`. Anthropic ships the loop as a *separate product*.
+all live in `agent/`, reachable only from `cmd/`. Anthropic ships the loop as a _separate product_.
 
 The loop budget in particular is uniformly a harness concern, never a model-call parameter: OpenAI
 Agents `max_turns` defaults to 10 on the Runner (`run_config.py:44`); Pydantic AI's
 `UsageLimits.request_limit` defaults to 50 and is checked before each request
 (`pydantic_ai/usage.py:418-440`, `:492-496`); LangGraph's prebuilt agent carries
-`remaining_steps: RemainingSteps = 25` in graph *state* and substitutes a canned message on
+`remaining_steps: RemainingSteps = 25` in graph _state_ and substitutes a canned message on
 exhaustion (`chat_agent_executor.py:74`, `:684-691`); Vercel's `generateText` defaults to
 `stopWhen: isStepCount(1)` — no loop at all — while its `ToolLoopAgent` class defaults to 20
 (`packages/ai/src/agent/tool-loop-agent.ts:132`). The spec's decision to queue nothing and count
 nothing is consistent with all of them.
 
-The one thing worth noting is that most of these stop *further back* than this package will: they
+The one thing worth noting is that most of these stop _further back_ than this package will: they
 have no equivalent of a Turn Context, so their "primitive" is smaller. That makes the spec's
 vocabulary defence (`CONTEXT.md` no longer defines Agent, Handoff, or Artifact; ADR 0002 records the
 line) more load-bearing than it might look, because Turn Contexts move the boundary closer to the
@@ -403,36 +403,36 @@ harness than any comparable library sits.
 
 **Justified.**
 
-- *One resident model, serialized turns.* Deviates from llama.cpp's N-slot concurrency. ADR 0002
+- _One resident model, serialized turns._ Deviates from llama.cpp's N-slot concurrency. ADR 0002
   records the reason and nothing found contradicts it. Ollama's own default of one parallel slot is
   supporting evidence.
-- *A named context handle as the only warm path.* Deviates from the stateless-plus-prefix-cache norm.
+- _A named context handle as the only warm path._ Deviates from the stateless-plus-prefix-cache norm.
   On-device prefill cost justifies it, and llama.cpp's slot machinery is the same concession made
   under a different name.
-- *No agent loop.* Not a deviation at all.
-- *Structured output via a forced tool call.* Not a deviation. It is Pydantic AI's default and the
+- _No agent loop._ Not a deviation at all.
+- _Structured output via a forced tool call._ Not a deviation. It is Pydantic AI's default and the
   documented fallback wherever no grammar engine exists.
 
 **Mistakes.**
 
-- *`arguments` as a raw JSON string, documented as "as emitted by the model".* The claim is false
+- _`arguments` as a raw JSON string, documented as "as emitted by the model"._ The claim is false
   against `mlx-swift-lm`, which parses before yielding (`Tool/ToolCall.swift:12`). The string would be
   a re-serialization, so it delivers neither fidelity nor visibility into malformed output, and every
   caller reverses it immediately. The settled form should be an object; the string belongs on the
   streaming event, where the package already has it.
-- *`LLMMessage` cannot express an assistant message with tool calls.* `role`, `content`, and an
+- _`LLMMessage` cannot express an assistant message with tool calls._ `role`, `content`, and an
   optional `toolCallId` cannot represent the assistant turn that produced the calls. Two things follow.
   The `history` field on a cold `LLMTurnRequest` cannot seed a transcript that contains a tool
   exchange at all. And the package's own `AssistantChatMessage` already has `toolCalls`
   (`package/src/chat.ts:49-58`), so `runTurn` regresses against `ChatSession`.
-- *The "cold turns cannot be continued" limitation is overstated.* The spec says the caller "would
+- _The "cold turns cannot be continued" limitation is overstated._ The spec says the caller "would
   have to rebuild that assistant message itself — in a format that is chat-template-specific per model
   family." That is not what upstream requires. `Chat.Message.assistant(_ content:, toolCalls:)` exists
   (`Chat.swift:67-76`), and `MessageGenerator.addToolMetadata` renders it into a model-agnostic
   `tool_calls` array that the model's own Jinja template consumes (`Chat.swift:137-158`). Template
-  specificity is handled by the template. A cold turn *can* be faithfully continued; the gap is that
+  specificity is handled by the template. A cold turn _can_ be faithfully continued; the gap is that
   `LLMMessage` has nowhere to put the tool calls. Fixing the type removes the limitation.
-- *`ToolSchema` cannot express a real tool schema.* `ToolParameter` is flat —
+- _`ToolSchema` cannot express a real tool schema._ `ToolParameter` is flat —
   `{ name, type: string, description, required }` (`package/src/specs/LLM.nitro.ts:191-196`) — with no
   nesting, no `items`, no `enum`, no `properties`. The Zod bridge is lossy: a nested object becomes
   `type: 'object'` with no shape, an array becomes `type: 'array'` with no `items`, and an enum
@@ -445,7 +445,7 @@ harness than any comparable library sits.
   This also breaks Milestone 3: `responseSchema` is a serialized JSON Schema string, so schema-to-
   synthetic-tool conversion has to reach past `ToolSchema` for anything nested — which means the
   package would support richer schemas for structured output than for tools.
-- *`responseSchema` is described as "required" of the model.* No forcing mechanism exists in
+- _`responseSchema` is described as "required" of the model._ No forcing mechanism exists in
   `mlx-swift-lm`. The spec should say the synthetic tool is the only tool offered and the model is
   asked to call it.
 
@@ -468,7 +468,13 @@ it unblocks three other items.
 export type LLMMessage =
   | { role: 'system' | 'user'; content: string }
   | { role: 'assistant'; content: string; toolCalls?: LLMToolCall[] }
-  | { role: 'tool'; toolCallId: string; name?: string; content: string; isError?: boolean }
+  | {
+      role: 'tool'
+      toolCallId: string
+      name?: string
+      content: string
+      isError?: boolean
+    }
 ```
 
 Evidence: `Chat.Message.assistant(_, toolCalls:)` and `addToolMetadata` already render this
@@ -497,7 +503,7 @@ settled-object / streaming-string split at Anthropic
 ([streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)) and LangChain
 (`ToolCall.args: dict` vs `ToolCallChunk.args: str`); MCP's `arguments?: { [key: string]: unknown }`;
 Ollama's ordered map (`api/types.go:221-234`). If Nitro cannot carry a map cleanly, a string is an
-acceptable *wire* compromise — but the JSDoc must stop claiming it is what the model emitted, and the
+acceptable _wire_ compromise — but the JSDoc must stop claiming it is what the model emitted, and the
 TypeScript wrapper should parse it before returning, as it already does for `StreamEventEnvelope`.
 Keep `id` non-optional: `ToolCallProcessor` always assigns one (`Tool/ToolCallProcessor.swift:453-468`,
 `Tool/ToolCallFormat.swift:139-148`), and Pydantic AI does the same on purpose — `tool_call_id` has a
@@ -579,7 +585,7 @@ last function call… pass back all reasoning items, function call items, and fu
 items, since the last `user` message"
 ([reasoning](https://developers.openai.com/api/docs/guides/reasoning)); Anthropic requires thinking
 blocks be echoed back unchanged on the same model. Here the answer is probably "the KV cache keeps
-whatever the model generated, including thinking tokens" — which is a *different* answer from the
+whatever the model generated, including thinking tokens" — which is a _different_ answer from the
 network APIs and has a memory cost per context that Open Question 1 should measure separately.
 
 **11. Note the two upstream primitives the spec lists as unavailable but which exist.**
@@ -614,7 +620,7 @@ which is a different size of decision and worth recording as such.
   verified. The XGrammar abstract states "up to 100x" over unnamed existing solutions; the Outlines
   abstract says only that the approach "adds little overhead". The frequently-cited O(1)-per-token
   claim for Outlines was **not** confirmed from the paper.
-- Whether vLLM and SGLang apply guided decoding to *tool arguments* as well as to response format was
+- Whether vLLM and SGLang apply guided decoding to _tool arguments_ as well as to response format was
   not confirmed from their docs. llama.cpp demonstrably does (`common/chat.cpp:1139-1160`), and both
   Anthropic and OpenAI state it for their own APIs.
 - Apple's Foundation Models guided generation was not investigated at all. Nothing here should be
@@ -638,6 +644,7 @@ which is a different size of decision and worth recording as such.
 Read 2026-08-17 unless stated.
 
 **Anthropic** (platform.claude.com; note `docs.anthropic.com` and `docs.claude.com` now 30x-redirect here)
+
 - https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
 - https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls
 - https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use
@@ -650,6 +657,7 @@ Read 2026-08-17 unless stated.
 
 **OpenAI** (developers.openai.com; `platform.openai.com/docs/*` 301-redirects here). OpenAPI spec
 `openai/openai-openapi` v2.3.0 @ `2186421`, 2026-08-15. Agents SDK @ tag `v0.21.1`, 2026-08-16.
+
 - https://developers.openai.com/api/docs/guides/function-calling
 - https://developers.openai.com/api/docs/guides/structured-outputs
 - https://developers.openai.com/api/docs/guides/conversation-state
@@ -662,6 +670,7 @@ Read 2026-08-17 unless stated.
   `src/agents/run_internal/run_steps.py:134-135`; `src/agents/tool.py:455`, `:2118-2129`
 
 **llama.cpp** — `ggml-org/llama.cpp` master @ `01818e49`, 2026-08-17
+
 - `tools/server/server-context.cpp:1487-1600` (slot selection), `:2481-2483` (`llama_state_seq_save_file`),
   `:3122-3196` (prefix reuse), `:3134-3192` (`--cache-reuse`), `:4534-4562` (`/slots` dispatch)
 - `tools/server/server-task.h:53` (`cache_prompt = true`), `:607-628` (RAM prompt cache)
@@ -673,6 +682,7 @@ Read 2026-08-17 unless stated.
 - `tools/server/README.md` lines 199-237, 494-580, 670-731, 1141-1190, 1533-1560, 1636-1640
 
 **Ollama** — `ollama/ollama` main @ `d67ad834`, 2026-08-15, tag `v0.32.14`
+
 - `api/types.go:197-207` (message), `:221-234` + `:298-303` (arguments as an object), `:1243-1270`
 - `llm/server.go:249-267` (`DoneReason`); `server/routes.go:417`, `:488`, `:2495`, `:2633`
 - `llm/llama_server.go:1569`, `:1583-1598`, `:2155`, `:2308-2336`; `envconfig/config.go:126-144`, `:275`
@@ -680,12 +690,14 @@ Read 2026-08-17 unless stated.
 - `agent/session.go:18-50`, `agent/approval.go` (CLI-only agent loop)
 
 **MCP** — revision `2026-07-28` (`/specification/latest` 307-redirects to it)
+
 - `schema/2026-07-28/schema.ts` — `Tool` (:1973), `CallToolRequestParams` (:1863), `CallToolResult` (:1809),
   `ToolAnnotations` (:1912), `ContentBlock` (:2305), `RequestId` (:261), deprecated `ToolUseContent` /
   `ToolResultContent` (~:2400)
 - `docs/specification/2026-07-28/server/tools.mdx`; `.../basic/index.mdx`; `.../changelog.mdx`
 
 **Agent frameworks**
+
 - Vercel AI SDK — `vercel/ai` @ `a0b1ffc`, 2026-08-17; published `ai@7.0.66`,
   `@ai-sdk/provider@4.0.7`. The provider spec is versioned with the major (`ai@5 → V2`, `@6 → V3`,
   `@7 → V4`) and all three ship side by side.
@@ -729,6 +741,7 @@ Read 2026-08-17 unless stated.
   `:4290-4313`; `libs/partners/anthropic/langchain_anthropic/chat_models.py:1913-1934`
 
 **Structured output engines**
+
 - XGrammar — `mlc-ai/xgrammar` v0.2.5 (2026-07-22); root `Package.swift`;
   `include/xgrammar/matcher.h:22`, `:32`, `:67`, `:97`, `:116`, `:159`, `:226`; README; arXiv 2411.15100 (abstract only)
 - llguidance — `guidance-ai/llguidance` v1.0.0; README; `parser/llguidance.h`
@@ -737,6 +750,7 @@ Read 2026-08-17 unless stated.
 
 **mlx-swift-lm** — 3.31.4, commit `bd4b743`, 2026-06-29 (checkout at
 `example/ios/build/SourcePackages/checkouts/mlx-swift-lm`)
+
 - `Libraries/MLXLMCommon/ChatSession.swift:145` (class), `:161` (`toolDispatch`), `:448-456`
   (`respond(to messages:)` docs), `:567-641` (`streamMap`, `messages.removeAll()`), `:760-783`
   (tool-call bypass and dispatch), `:823` (`clear`), `:833` (`synchronize`), `:861` (`saveCache`)
@@ -754,8 +768,10 @@ Read 2026-08-17 unless stated.
   `mlx_lm/sample_utils.py:72-126`
 
 **This repository**
+
 - `package/src/specs/LLM.nitro.ts:6-12`, `:14-19`, `:64-69`, `:144-147`, `:152-173`, `:191-206`
 - `package/src/chat.ts:34-73`; `package/src/tool-utils.ts:15-56`
 - `package/ios/Sources/HybridLLM.swift:756`, `:938-975`
 </content>
+
 </invoke>

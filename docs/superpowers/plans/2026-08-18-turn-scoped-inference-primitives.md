@@ -37,12 +37,14 @@ bun --cwd package test:ios-llm-error
 ### Task 1: Model residency — `ModelLoadPlan` and the `load()` skip
 
 **Files:**
+
 - Create: `package/ios/Sources/ModelLoadPlan.swift`
 - Create: `package/ios/Tests/ModelLoadPlanTests.swift`
 - Modify: `package/ios/Sources/HybridLLM.swift:719-734` (`resetModelState`), `:756-822` (`load`)
 - Modify: `package/package.json` (add `test:ios-load-plan` script)
 
 **Interfaces:**
+
 - Produces: `ModelLoadAction` enum (`.loadContainer` / `.reuseContainer`) and `ModelLoadPlan.action(requestedModelId:loadedModelId:hasContainer:)`. Also splits `resetModelState()` into `resetTurnConfiguration()` + container/model teardown; Task 8 reuses `resetTurnConfiguration()`.
 
 - [ ] **Step 1: Write the failing Swift test**
@@ -231,11 +233,13 @@ git commit -m "feat(ios): skip weight reload when load() targets the resident mo
 ### Task 2: `LLM.loadedModelId` on the TypeScript wrapper
 
 **Files:**
+
 - Modify: `package/src/llm.ts` (add getter near the existing `isLoaded` getter)
 - Modify: `package/src/index.ts` only if `LLM` docs reference it (no export change needed — `LLM` is already exported)
 - Test: `package/src/turn.test.ts` (create; this file grows in Tasks 4 and 11)
 
 **Interfaces:**
+
 - Consumes: native `readonly modelId: string` and `readonly isLoaded: boolean` (already in `LLM.nitro.ts`; `modelId` is `""` when unloaded because `resetModelState()` clears it).
 - Produces: `LLM.loadedModelId: string | null` — the public residency query named in the spec.
 
@@ -311,10 +315,12 @@ git commit -m "feat: expose LLM.loadedModelId for residency checks"
 ### Task 3: Baseline measurement screen (Milestone 0 evidence)
 
 **Files:**
+
 - Create: `example/app/benchmark.tsx`
 - Modify: `example/app/index.tsx` (add a navigation link; match the file's existing link style)
 
 **Interfaces:**
+
 - Consumes: `LLM.load`, `LLM.loadedModelId`, `LLM.generate` from `react-native-nitro-mlx`.
 - Produces: on-screen numbers a human records into the PR description: repeat-load time, cold turn time (unmanaged path), warm turn time (managed path over a growing transcript).
 
@@ -396,11 +402,13 @@ git commit -m "feat(example): baseline benchmark screen for residency and warm-t
 ### Task 4: Nitro wire types and TypeScript validators
 
 **Files:**
+
 - Modify: `package/src/specs/LLM.nitro.ts` (types + method declarations + `LLMGenerationConfig` fields)
 - Modify: `package/src/runtime.ts` (validators)
 - Test: `package/src/turn.test.ts` (extend)
 
 **Interfaces:**
+
 - Produces (wire, all flat for Nitro): `LLMTurnMessage`, `LLMToolSchema`, `LLMToolCallWire`, `LLMTurnUsage`, `LLMTurnFinishReason`, `LLMTurnOutcome`, `LLMTurnRequest`, `LLMTurnContextOptions`, `LLMTokenCountRequest`; native methods `createTurnContext`, `releaseTurnContext`, `releaseAllTurnContexts`, `turnContextIds`, `runTurn`, `countTokens`; `LLMGenerationConfig.seed/topK/minP`.
 - Produces (validators in `runtime.ts`): `validateTurnMessages`, `validateToolSchemas`, `validateTurnRequest`, `validateTurnContextOptions`, `validateTokenCountRequest` — exact signatures in Step 3.
 - **Do NOT run `bun specs` in this task.** Swift implementations arrive in Task 8; regeneration before then breaks the iOS build.
@@ -451,13 +459,7 @@ export interface LLMTurnUsage {
 }
 
 export type LLMTurnFinishReason =
-  | 'completed'
-  | 'tool_calls'
-  | 'length'
-  | 'stopped'
-  | 'unloaded'
-  | 'superseded'
-  | 'failed'
+  'completed' | 'tool_calls' | 'length' | 'stopped' | 'unloaded' | 'superseded' | 'failed'
 
 export interface LLMTurnOutcome {
   finishReason: LLMTurnFinishReason
@@ -547,11 +549,8 @@ In the `LLM` interface (after `streamWithEvents`):
 Append to `package/src/turn.test.ts`:
 
 ```ts
-const {
-  validateTurnMessages,
-  validateToolSchemas,
-  validateTurnRequest,
-} = await import('./runtime')
+const { validateTurnMessages, validateToolSchemas, validateTurnRequest } =
+  await import('./runtime')
 
 describe('validateTurnMessages', () => {
   it('rejects an empty array when required', () => {
@@ -604,7 +603,10 @@ describe('validateTurnMessages', () => {
 describe('validateToolSchemas', () => {
   it('rejects parameters that are not JSON', () => {
     expect(() =>
-      validateToolSchemas([{ name: 'f', description: 'd', parameters: '{oops' }], 'tools'),
+      validateToolSchemas(
+        [{ name: 'f', description: 'd', parameters: '{oops' }],
+        'tools',
+      ),
     ).toThrow(/JSON/)
   })
 
@@ -638,7 +640,11 @@ describe('validateTurnRequest', () => {
 
   it('rejects cold-turn fields on a warm request', () => {
     expect(() =>
-      validateTurnRequest({ messages: user, contextId: 'ctx-1', instructions: 'be brief' }),
+      validateTurnRequest({
+        messages: user,
+        contextId: 'ctx-1',
+        instructions: 'be brief',
+      }),
     ).toThrow(/contextId/)
   })
 
@@ -689,7 +695,9 @@ export function validateTurnMessages(
     }
     const m = message as TurnMessageLike
     if (role === 'tool' && (typeof m.toolCallId !== 'string' || m.toolCallId === '')) {
-      throw new TypeError(`${label} is a tool message and requires a non-empty toolCallId`)
+      throw new TypeError(
+        `${label} is a tool message and requires a non-empty toolCallId`,
+      )
     }
     if (m.toolCallsJson !== undefined && role !== 'assistant') {
       throw new TypeError(`${label} carries tool calls but only assistant messages may`)
@@ -731,7 +739,9 @@ export function validateToolSchemas(value: unknown, name: string): ToolSchemaLik
       Array.isArray(parsed) ||
       (parsed as { type?: unknown }).type !== 'object'
     ) {
-      throw new TypeError(`${label}.parameters root must be an object schema ("type": "object")`)
+      throw new TypeError(
+        `${label}.parameters root must be an object schema ("type": "object")`,
+      )
     }
     return t
   })
@@ -762,11 +772,7 @@ export function validateTurnRequest(request: TurnRequestLike): void {
   }
   if (request.contextId !== undefined) {
     assertNonEmptyString(request.contextId, 'runTurn contextId')
-    if (
-      request.instructions !== undefined ||
-      request.history !== undefined ||
-      hasTools
-    ) {
+    if (request.instructions !== undefined || request.history !== undefined || hasTools) {
       throw new TypeError(
         'runTurn instructions, history, and tools are cold-turn fields; remove them or remove contextId',
       )
@@ -835,11 +841,13 @@ git commit -m "feat: add turn-scoped wire types and request validators"
 ### Task 5: `TurnContextRegistry` (pure Swift)
 
 **Files:**
+
 - Create: `package/ios/Sources/TurnContextRegistry.swift`
 - Create: `package/ios/Tests/TurnContextRegistryTests.swift`
 - Modify: `package/package.json` (add `test:ios-turn-registry`)
 
 **Interfaces:**
+
 - Produces: `TurnContextRegistry<Entry>` with `insert(_:) -> String`, `entry(for:)`, `update(_:with:)`, `release(_:) -> Entry?`, `releaseAll() -> [Entry]`, `ids: [String]`, `count: Int`. Task 8 instantiates it with `Entry == TurnContextEntry` (which holds a `ChatSession`); keeping it generic keeps this file Foundation-only.
 
 - [ ] **Step 1: Write the failing test**
@@ -953,11 +961,13 @@ git commit -m "feat(ios): add Turn Context registry bookkeeping"
 ### Task 6: `TurnRequestPlanner` (pure Swift)
 
 **Files:**
+
 - Create: `package/ios/Sources/TurnRequestPlanner.swift`
 - Create: `package/ios/Tests/TurnRequestPlannerTests.swift`
 - Modify: `package/package.json` (add `test:ios-turn-planner`)
 
 **Interfaces:**
+
 - Produces (Foundation-only mirror types, mapped from Nitro types by HybridLLM in Task 8):
   - `TurnMessagePlan { role, content, toolCallId, name, isError, toolCallsJson }`
   - `TurnPlanError: Error, Equatable` — cases listed in Step 3
@@ -1242,11 +1252,13 @@ git commit -m "feat(ios): add turn request planner with tool-result completeness
 ### Task 7: `ToolSchemaPlanner` (pure Swift)
 
 **Files:**
+
 - Create: `package/ios/Sources/ToolSchemaPlanner.swift`
 - Create: `package/ios/Tests/ToolSchemaPlannerTests.swift`
 - Modify: `package/package.json` (add `test:ios-tool-schema`)
 
 **Interfaces:**
+
 - Produces: `ToolSchemaPlanner.parseParameters(_ json: String) throws -> [String: Any]` (throws `ToolSchemaError.invalidJSON` / `.rootNotObjectSchema`), and `ToolSchemaPlanner.syntheticTool(responseSchema: String) throws -> (name: String, description: String, parameters: [String: Any])` with the fixed name `respond_with_structured_output`. Task 9 uses `parseParameters` to build upstream `ToolSpec` dictionaries; Task 14 uses `syntheticTool`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1386,11 +1398,13 @@ git commit -m "feat(ios): add tool schema planner and synthetic structured-outpu
 ### Task 8: Nitrogen regeneration, context methods, and the `runTurn` stub
 
 **Files:**
+
 - Modify: `package/src/specs/LLM.nitro.ts` (none — types landed in Task 4)
 - Modify: `package/ios/Sources/HybridLLM.swift` (context entry type, registry, new protocol methods)
 - Generated: `package/nitrogen/**` (via `bun specs`)
 
 **Interfaces:**
+
 - Consumes: `TurnContextRegistry` (Task 5), `resetTurnConfiguration` (Task 1), generated Nitro types `LLMTurnContextOptions`, `LLMTurnRequest`, `LLMTurnOutcome` etc. (Task 4).
 - Produces: `TurnContextEntry` struct; working `createTurnContext` / `releaseTurnContext` / `releaseAllTurnContexts` / `turnContextIds`; `runTurn` and `countTokens` stubs that reject with `LLMError.generationFailed(stage: "prepare", ...)`; a compiling generated protocol. Tasks 9/10/13/14 replace the stubs.
 
@@ -1618,9 +1632,11 @@ git commit -m "feat(ios): Turn Context registry methods and runTurn scaffolding 
 ### Task 9: `runTurn` cold path
 
 **Files:**
+
 - Modify: `package/ios/Sources/HybridLLM.swift` (replace the `runTurn` stub; add `TurnGenerationSink` usage)
 
 **Interfaces:**
+
 - Consumes: `TurnRequestPlanner.plan` (Task 6), `ToolSchemaPlanner.parseParameters` (Task 7), `chatMessagesFromTurnMessages` (Task 8), existing `EventGenerationSink` internals (`:264`), `ThinkingStateMachine`, `TokenBatcher`, `generationTasks` guard.
 - Produces: a working cold `runTurn` returning `LLMTurnOutcome` with `toolCalls`, split `usage`, and stream events. Task 10 adds the warm branch inside the same function.
 
@@ -1758,9 +1774,11 @@ git commit -m "feat(ios): cold runTurn path returning Tool Call Requests with sp
 ### Task 10: `runTurn` warm path, pending-tool bookkeeping, and cancellation rebuild
 
 **Files:**
+
 - Modify: `package/ios/Sources/HybridLLM.swift` (warm branch in `runTurn`)
 
 **Interfaces:**
+
 - Consumes: `TurnContextEntry` (Task 8), the cold-path machinery (Task 9).
 - Produces: warm turns over a registry `ChatSession`; `pendingToolCallIds` written after a `tool_calls` outcome and cleared on results; `needsRebuild` set on cancellation and honored on the next turn; transcript mirroring for rebuild and `countTokens`.
 
@@ -1824,12 +1842,14 @@ git commit -m "feat(ios): warm runTurn path with tool-result bookkeeping and can
 ### Task 11: Public TypeScript wrapper (`turn.ts`)
 
 **Files:**
+
 - Create: `package/src/turn.ts`
 - Modify: `package/src/llm.ts` (attach `runTurn`, `createContext`, `countTokens` etc. to the `LLM` object)
 - Modify: `package/src/index.ts` (export public types)
 - Test: `package/src/turn.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: native methods (Task 8–10 signatures), validators (Task 4), `mapStreamEventEnvelope` and `createSafeCallback` from `runtime.ts`.
 - Produces the public spec surface:
   - `type LLMMessage` (discriminated union), `interface LLMToolCall { id; name; arguments: Record<string, unknown> }`, `interface ToolSchema`, `interface LLMTurnUsage`, `interface LLMTurnOutcome` (public, parsed `toolCalls`), `interface LLMTurnRequest` (public), `interface LLMContext { id; release() }`
@@ -2077,7 +2097,9 @@ export function toWireContextOptions(options: LLMContextOptions): WireContextOpt
 }
 
 /** @internal */
-export function toWireTokenCountRequest(request: LLMTokenCountRequest): WireTokenCountRequest {
+export function toWireTokenCountRequest(
+  request: LLMTokenCountRequest,
+): WireTokenCountRequest {
   return {
     contextId: request.contextId,
     instructions: request.instructions,
@@ -2176,11 +2198,13 @@ git commit -m "feat: public turn API — runTurn, Turn Contexts, countTokens"
 ### Task 12: `seed`, `topK`, `minP` in generation parameters
 
 **Files:**
+
 - Modify: `package/ios/Sources/HybridLLM.swift:493-506` (`buildGenerateParameters`)
 - Modify: `package/src/runtime.ts` (extend `validateLLMLoadOptions`'s generation-config checks if present; otherwise add `validateGenerationConfig` used by turn validators)
 - Test: `package/src/turn.test.ts`
 
 **Interfaces:**
+
 - Consumes: upstream `GenerateParameters(topK:minP:seed:)` — verified present in the resolved checkout at `Evaluate.swift:87-97, 126-146`.
 - Produces: config passthrough on every path (legacy load and turn-scoped).
 
@@ -2239,9 +2263,11 @@ git commit -m "feat: seed, topK, and minP generation parameters"
 ### Task 13: `countTokens` (Milestone 2)
 
 **Files:**
+
 - Modify: `package/ios/Sources/HybridLLM.swift` (replace the `countTokens` stub)
 
 **Interfaces:**
+
 - Consumes: `chatMessagesFromTurnMessages` (Task 8), `TurnContextEntry.transcript` (Task 10), the container's processor.
 - Produces: `countTokens` returning the rendered prompt's token count.
 
@@ -2304,10 +2330,12 @@ git commit -m "feat(ios): countTokens over the rendered chat template"
 ### Task 14: Structured output (Milestone 3)
 
 **Files:**
+
 - Modify: `package/ios/Sources/HybridLLM.swift` (`runTurn` cold path: `responseSchema` branch)
 - Test: manual device + existing pure tests (`ToolSchemaPlanner` covered the conversion in Task 7)
 
 **Interfaces:**
+
 - Consumes: `ToolSchemaPlanner.syntheticTool` (Task 7), cold path (Task 9).
 - Produces: `responseSchema` turns that resolve with parsed JSON `content`, or `finishReason: 'failed'` / `stage: 'schema'`.
 
@@ -2409,10 +2437,12 @@ git commit -m "feat(ios): structured output via a synthetic forced tool with typ
 ### Task 15: Example "Turn Lab" screen and on-device QA checklist
 
 **Files:**
+
 - Create: `example/app/turn-lab.tsx`
 - Modify: `example/app/index.tsx` (add a link, matching Task 3's pattern)
 
 **Interfaces:**
+
 - Consumes: the full public API from Task 11.
 
 - [ ] **Step 1: Write the screen**
@@ -2446,12 +2476,16 @@ const tools: ToolSchema[] = [
   },
 ]
 
-function runTool(name: string, args: Record<string, unknown>): { content: string; failed: boolean } {
+function runTool(
+  name: string,
+  args: Record<string, unknown>,
+): { content: string; failed: boolean } {
   if (name === 'get_time') return { content: new Date().toISOString(), failed: false }
   if (name === 'add_numbers') {
     const a = Number(args.a)
     const b = Number(args.b)
-    if (Number.isNaN(a) || Number.isNaN(b)) return { content: 'a and b must be numbers', failed: true }
+    if (Number.isNaN(a) || Number.isNaN(b))
+      return { content: 'a and b must be numbers', failed: true }
     return { content: String(a + b), failed: false }
   }
   return { content: `unknown tool ${name}`, failed: true }
@@ -2541,9 +2575,11 @@ git commit -m "feat(example): Turn Lab screen exercising the caller-owned tool l
 ### Task 16: Documentation (Milestone 4)
 
 **Files:**
+
 - Modify: `README.md` (repo root — check whether the package README at `package/README.md` is the published one; edit the published one)
 
 **Interfaces:**
+
 - Consumes: the shipped API. Content mirrors the spec sections; do not restate internals.
 
 - [ ] **Step 1: Write the docs**
@@ -2572,21 +2608,21 @@ git commit -m "docs: agent loop, Turn Context lifetime, and structured output gu
 
 ## Spec coverage map (self-review record)
 
-| Spec section | Task(s) |
-| --- | --- |
-| Model residency / `loadedModelId` | 1, 2 |
-| Milestone 0 baselines | 3 |
-| Messages (`LLMMessage` union, `isError`, `name`) | 4 (wire), 11 (public) |
-| Tool schemas (JSON Schema) | 4, 7 |
-| Turn Contexts (create/release/ids, belong to model) | 5, 8 |
-| `runTurn` cold / warm, serialization, cancellation rebuild | 6, 9, 10 |
-| Tool call contract (parallel calls, completeness, order-free, `ToolCallStartEvent`) | 6, 9, 10 |
-| Usage split + `cachedPromptTokens` | 9, 10 |
-| `rawFinishReason`, reportable-not-load-bearing | 9, 11, 16 |
-| Thinking contract | 9 (warm cache keeps it), 16 (documented) |
-| `seed` / `topK` / `minP` | 12 |
-| `countTokens` (Milestone 2) | 13 |
-| Structured output (Milestone 3) | 7, 14 |
-| Example + on-device QA | 15 |
-| Docs (Milestone 4) | 16 |
-| Not planned (spec: deferred/stated limitations) | constrained decoding, cache persistence, trim, `toolChoice`, stop sequences |
+| Spec section                                                                        | Task(s)                                                                     |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Model residency / `loadedModelId`                                                   | 1, 2                                                                        |
+| Milestone 0 baselines                                                               | 3                                                                           |
+| Messages (`LLMMessage` union, `isError`, `name`)                                    | 4 (wire), 11 (public)                                                       |
+| Tool schemas (JSON Schema)                                                          | 4, 7                                                                        |
+| Turn Contexts (create/release/ids, belong to model)                                 | 5, 8                                                                        |
+| `runTurn` cold / warm, serialization, cancellation rebuild                          | 6, 9, 10                                                                    |
+| Tool call contract (parallel calls, completeness, order-free, `ToolCallStartEvent`) | 6, 9, 10                                                                    |
+| Usage split + `cachedPromptTokens`                                                  | 9, 10                                                                       |
+| `rawFinishReason`, reportable-not-load-bearing                                      | 9, 11, 16                                                                   |
+| Thinking contract                                                                   | 9 (warm cache keeps it), 16 (documented)                                    |
+| `seed` / `topK` / `minP`                                                            | 12                                                                          |
+| `countTokens` (Milestone 2)                                                         | 13                                                                          |
+| Structured output (Milestone 3)                                                     | 7, 14                                                                       |
+| Example + on-device QA                                                              | 15                                                                          |
+| Docs (Milestone 4)                                                                  | 16                                                                          |
+| Not planned (spec: deferred/stated limitations)                                     | constrained decoding, cache persistence, trim, `toolChoice`, stop sequences |

@@ -199,7 +199,12 @@ Two rules keep a loop correct:
   failure, `content` explains it.
 
 ```typescript
-import { LLM, type LLMMessage, type LLMTurnOutcome, type ToolSchema } from 'react-native-nitro-mlx'
+import {
+  LLM,
+  type LLMMessage,
+  type LLMTurnOutcome,
+  type ToolSchema,
+} from 'react-native-nitro-mlx'
 
 const TOOL_SCHEMAS: ToolSchema[] = [
   {
@@ -264,12 +269,12 @@ async function runAgent(goal: string, maxSteps = 6): Promise<LLMTurnOutcome> {
 Both run turns against the loaded model. Pick the one that matches who should
 own the loop.
 
-| | `ChatSession` | `runTurn` + Turn Contexts |
-|---|---|---|
-| Best for | A single chat UI that should just work | An agent loop, tool approval, step budgets, or more than one conversational role |
-| Tool calls | Executed for you; you supply handlers | Returned to you as Tool Call Requests; you execute them and report results back |
-| History | Held by the session (`chat.messages`) | Held by a Turn Context, or assembled by you per turn |
-| Control | The package drives the loop | You drive the loop, one `runTurn` call per step |
+|            | `ChatSession`                          | `runTurn` + Turn Contexts                                                        |
+| ---------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| Best for   | A single chat UI that should just work | An agent loop, tool approval, step budgets, or more than one conversational role |
+| Tool calls | Executed for you; you supply handlers  | Returned to you as Tool Call Requests; you execute them and report results back  |
+| History    | Held by the session (`chat.messages`)  | Held by a Turn Context, or assembled by you per turn                             |
+| Control    | The package drives the loop            | You drive the loop, one `runTurn` call per step                                  |
 
 Start with `ChatSession`. Reach for `runTurn` and Turn Contexts when your app
 must see a tool call before it runs, cap the number of steps, or manage more
