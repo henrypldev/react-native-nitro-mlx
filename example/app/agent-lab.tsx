@@ -396,6 +396,10 @@ const StatTile = ({ label, value }: { label: string; value: string }) => {
   )
 }
 
+const openDownloadModal = () => {
+  router.push('/download-modal')
+}
+
 export default function AgentLabScreen() {
   const [isChecking, setIsChecking] = useState(true)
   const [isDownloaded, setIsDownloaded] = useState(false)
@@ -460,10 +464,6 @@ export default function AgentLabScreen() {
 
     loadModel()
   }, [isDownloaded, isReady])
-
-  const openDownloadModal = () => {
-    router.push('/download-modal')
-  }
 
   const handleResetMockState = useCallback(() => {
     if (isRunning) return

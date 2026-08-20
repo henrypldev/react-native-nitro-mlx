@@ -236,6 +236,32 @@ const MessageItem = ({
   )
 }
 
+const openSettings = () => {
+  router.push('/settings-modal')
+}
+
+const openBenchmark = () => {
+  router.push('/benchmark')
+}
+
+const openAgentLab = () => {
+  router.push('/agent-lab')
+}
+
+const openDownloadModal = () => {
+  router.push('/download-modal')
+}
+
+const logHistory = () => {
+  try {
+    const history = LLM.getHistory()
+    console.log('Message History:', history)
+    console.log('Total messages:', history.length)
+  } catch (error) {
+    console.error('Error getting history:', error)
+  }
+}
+
 export default function ChatScreen() {
   const [isChecking, setIsChecking] = useState(true)
   const [isDownloaded, setIsDownloaded] = useState(false)
@@ -260,18 +286,6 @@ export default function ChatScreen() {
   const { addResult } = useBenchmark()
 
   LLM.debug = true
-
-  const openSettings = () => {
-    router.push('/settings-modal')
-  }
-
-  const openBenchmark = () => {
-    router.push('/benchmark')
-  }
-
-  const openAgentLab = () => {
-    router.push('/agent-lab')
-  }
 
   const checkDownloaded = useCallback(async () => {
     setIsChecking(true)
@@ -493,10 +507,6 @@ export default function ChatScreen() {
     }
   }
 
-  const openDownloadModal = () => {
-    router.push('/download-modal')
-  }
-
   const deleteModel = async () => {
     try {
       LLM.unload()
@@ -553,16 +563,6 @@ export default function ChatScreen() {
       console.error('Error syncing from history:', error)
     }
   }, [])
-
-  const logHistory = () => {
-    try {
-      const history = LLM.getHistory()
-      console.log('Message History:', history)
-      console.log('Total messages:', history.length)
-    } catch (error) {
-      console.error('Error getting history:', error)
-    }
-  }
 
   const handleClearHistory = () => {
     try {
