@@ -242,27 +242,27 @@ describe('generation config validation', () => {
 
 describe('validateTurnContextOptions generation config validation', () => {
   it('rejects a negative seed', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: { seed: -1 } }),
-    ).toThrow(/seed/)
+    expect(() => validateTurnContextOptions({ generationConfig: { seed: -1 } })).toThrow(
+      /seed/,
+    )
   })
 
   it('rejects a fractional seed', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: { seed: 1.5 } }),
-    ).toThrow(/seed/)
+    expect(() => validateTurnContextOptions({ generationConfig: { seed: 1.5 } })).toThrow(
+      /seed/,
+    )
   })
 
   it('rejects a negative topK', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: { topK: -1 } }),
-    ).toThrow(/topK/)
+    expect(() => validateTurnContextOptions({ generationConfig: { topK: -1 } })).toThrow(
+      /topK/,
+    )
   })
 
   it('rejects a fractional topK', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: { topK: 2.5 } }),
-    ).toThrow(/topK/)
+    expect(() => validateTurnContextOptions({ generationConfig: { topK: 2.5 } })).toThrow(
+      /topK/,
+    )
   })
 
   it('rejects a minP below 0', () => {
@@ -272,21 +272,21 @@ describe('validateTurnContextOptions generation config validation', () => {
   })
 
   it('rejects a minP above 1', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: { minP: 1.1 } }),
-    ).toThrow(/minP/)
+    expect(() => validateTurnContextOptions({ generationConfig: { minP: 1.1 } })).toThrow(
+      /minP/,
+    )
   })
 
   it('rejects a null generationConfig', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: null }),
-    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
+    expect(() => validateTurnContextOptions({ generationConfig: null })).toThrow(
+      /\[react-native-nitro-mlx\].*generationConfig must be an object/,
+    )
   })
 
   it('rejects a non-object generationConfig', () => {
-    expect(() =>
-      validateTurnContextOptions({ generationConfig: 5 }),
-    ).toThrow(/\[react-native-nitro-mlx\].*generationConfig must be an object/)
+    expect(() => validateTurnContextOptions({ generationConfig: 5 })).toThrow(
+      /\[react-native-nitro-mlx\].*generationConfig must be an object/,
+    )
   })
 
   it('accepts a valid generationConfig', () => {

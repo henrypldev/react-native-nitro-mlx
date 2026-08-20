@@ -450,7 +450,9 @@ export function validateToolSchemas(value: unknown, name: string): ToolSchemaLik
     assertNonEmptyString(t?.description, `${label}.description`)
     assertNonEmptyString(t?.parameters, `${label}.parameters`)
     if (seen.has(t.name)) {
-      throw new TypeError(`${ERROR_PREFIX} ${name} contains a duplicate tool name: ${t.name}`)
+      throw new TypeError(
+        `${ERROR_PREFIX} ${name} contains a duplicate tool name: ${t.name}`,
+      )
     }
     seen.add(t.name)
     let parsed: unknown
@@ -527,7 +529,9 @@ export function validateTurnRequest(request: TurnRequestLike): void {
       'runTurn responseSchema',
     )
     if (hasTools) {
-      throw new TypeError(`${ERROR_PREFIX} runTurn responseSchema is exclusive with tools`)
+      throw new TypeError(
+        `${ERROR_PREFIX} runTurn responseSchema is exclusive with tools`,
+      )
     }
   }
   if (request.contextId !== undefined) {
