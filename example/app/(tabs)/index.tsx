@@ -268,6 +268,10 @@ export default function ChatScreen() {
     router.push('/benchmark')
   }
 
+  const openAgentLab = () => {
+    router.push('/agent-lab')
+  }
+
   const checkDownloaded = useCallback(async () => {
     setIsChecking(true)
     try {
@@ -710,6 +714,9 @@ export default function ChatScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.historyButton} onPress={openBenchmark}>
               <Text style={styles.historyButtonText}>Baseline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.historyButton} onPress={openAgentLab}>
+              <Text style={styles.historyButtonText}>Agent</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[

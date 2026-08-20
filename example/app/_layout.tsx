@@ -24,6 +24,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="agent-lab"
+            options={{
+              title: 'Agent Lab',
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
             name="download-modal"
             options={{
               presentation: 'modal',
