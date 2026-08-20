@@ -1474,16 +1474,6 @@ private final class HybridLLMCore {
     private enum StructuredOutputResult {
         case success(content: String)
         case failure(message: String)
-
-        /// The warm mirror's assistant turn on success: the JSON *is* the
-        /// answer, so the transcript reads like the model said it directly
-        /// rather than carrying the synthetic tool-call wrapper. `nil` on
-        /// failure defers to the caller's own `progress.content` (the
-        /// prose), which is already what actually happened.
-        var mirroredContent: String? {
-            if case .success(let content) = self { return content }
-            return nil
-        }
     }
 
     /// Inspects the one tool call a schema turn's stream produced, if any.
@@ -1836,41 +1826,57 @@ private final class HybridLLMCore {
                 inputMessages: inputMessages,
                 sink: sink,
                 progress: progress,
-                into: accumulation
+                into: accumulation,
+                suppressToolCallEvents: expectsStructuredOutput
             )
 
-            let structuredOutput = expectsStructuredOutput
-                ? structuredOutputResult(from: accumulation)
-                : nil
-
-            // The synthetic tool call is a request/response implementation
-            // detail, never a Tool Call Request the caller learns about
-            // (toolCalls is always [] on a schema outcome) — clearing it
-            // before the warm mirror sees it keeps `pendingToolCallIds` in
-            // sync with what the caller actually received. Otherwise a
-            // committed id nobody was told about would deadlock every later
-            // turn on this Turn Context (`incompleteToolResults`).
-            if structuredOutput != nil {
-                accumulation.toolCalls = []
-                accumulation.wireToolCalls = []
+            if expectsStructuredOutput {
+                switch structuredOutputResult(from: accumulation) {
+                case .success(let content):
+                    // The synthetic tool call is a request/response
+                    // implementation detail, never a Tool Call Request the
+                    // caller learns about (toolCalls is always [] on a
+                    // schema outcome) — clearing it before the warm mirror
+                    // sees it keeps `pendingToolCallIds` in sync with what
+                    // the caller actually received. Otherwise a committed
+                    // id nobody was told about would deadlock every later
+                    // turn on this Turn Context (`incompleteToolResults`).
+                    // The mirrored content is the JSON itself, so the
+                    // transcript reads like the model answered directly.
+                    accumulation.toolCalls = []
+                    accumulation.wireToolCalls = []
+                    if let warm {
+                        commitWarmTurn(
+                            warm,
+                            inputMessages: inputMessages,
+                            content: content,
+                            accumulation: accumulation
+                        )
+                    }
+                    return outcome(.completed, rawFinishReason: "structured_output", content: content)
+                case .failure(let message):
+                    // Nothing commits on a schema failure, matching the
+                    // cancellation/error paths below: the live session's KV
+                    // cache still advanced (the model's wrong-tool-call or
+                    // prose reply actually happened), but the mirror must
+                    // not silently drop that exchange (a bare user turn with
+                    // no assistant reply) nor invent one the caller was
+                    // never shown. Marking the context for rebuild means the
+                    // next warm turn reconstructs cleanly from the
+                    // last-committed mirror instead of drifting from the
+                    // live cache.
+                    if let warm { markWarmTurnForRebuild(warm) }
+                    return outcome(.failed, error: message, stage: "schema")
+                }
             }
 
             if let warm {
                 commitWarmTurn(
                     warm,
                     inputMessages: inputMessages,
-                    content: structuredOutput?.mirroredContent ?? progress.content,
+                    content: progress.content,
                     accumulation: accumulation
                 )
-            }
-
-            if let structuredOutput {
-                switch structuredOutput {
-                case .success(let content):
-                    return outcome(.completed, rawFinishReason: "structured_output", content: content)
-                case .failure(let message):
-                    return outcome(.failed, error: message, stage: "schema")
-                }
             }
 
             if !accumulation.wireToolCalls.isEmpty {
@@ -1908,12 +1914,22 @@ private final class HybridLLMCore {
     /// Folds one `streamDetails` pass into `accumulation`, routing tokens
     /// through the same sink legacy turns use so thinking tags, token batching,
     /// and the `tool_call_start` envelope behave identically.
+    ///
+    /// `suppressToolCallEvents` keeps a schema turn's synthetic tool call (and
+    /// anything else the model calls while only that tool was offered) off the
+    /// wire entirely: the id is still minted and folded into `accumulation`
+    /// exactly as usual, so `structuredOutputResult` and the warm mirror keep
+    /// working — only `sink.registerToolCall`'s `tool_call_start` emission
+    /// (and everything downstream of it, e.g. a caller auto-executing it) is
+    /// skipped. The outcome always reports `toolCalls: []` for a schema turn,
+    /// so the caller must never see this call as a Tool Call Request.
     private func collectTurn(
         session: ChatSession,
         inputMessages: [Chat.Message],
         sink: GenerationSink,
         progress: GenerationProgress,
-        into accumulation: TurnAccumulation
+        into accumulation: TurnAccumulation,
+        suppressToolCallEvents: Bool = false
     ) async throws {
         var didFinalize = false
         defer {
@@ -1938,11 +1954,16 @@ private final class HybridLLMCore {
                 let argumentsJson = dictionaryToJson(
                     convertToolCallArguments(toolCall.function.arguments)
                 )
-                let id = sink.registerToolCall(
-                    name: name,
-                    arguments: argumentsJson,
-                    modelID: toolCall.id
-                )
+                // A schema turn mints the same id `registerToolCall` would
+                // have (model id if present, else a fresh UUID) without
+                // calling it, so nothing reaches the bridge.
+                let id = suppressToolCallEvents
+                    ? (toolCall.id ?? UUID().uuidString)
+                    : sink.registerToolCall(
+                        name: name,
+                        arguments: argumentsJson,
+                        modelID: toolCall.id
+                    )
                 accumulation.toolCalls.append(toolCall)
                 accumulation.wireToolCalls.append(
                     LLMToolCallWire(id: id, name: name, argumentsJson: argumentsJson)
