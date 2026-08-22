@@ -52,10 +52,11 @@ namespace margelo::nitro::mlxreactnative {
     std::optional<double> seed     SWIFT_PRIVATE;
     std::optional<double> topK     SWIFT_PRIVATE;
     std::optional<double> minP     SWIFT_PRIVATE;
+    std::optional<bool> enableThinking     SWIFT_PRIVATE;
 
   public:
     LLMGenerationConfig() = default;
-    explicit LLMGenerationConfig(std::optional<double> maxTokens, std::optional<double> maxKVSize, std::optional<double> kvBits, std::optional<double> kvGroupSize, std::optional<double> quantizedKVStart, std::optional<double> temperature, std::optional<double> topP, std::optional<double> repetitionPenalty, std::optional<double> repetitionContextSize, std::optional<double> prefillStepSize, std::optional<double> seed, std::optional<double> topK, std::optional<double> minP): maxTokens(maxTokens), maxKVSize(maxKVSize), kvBits(kvBits), kvGroupSize(kvGroupSize), quantizedKVStart(quantizedKVStart), temperature(temperature), topP(topP), repetitionPenalty(repetitionPenalty), repetitionContextSize(repetitionContextSize), prefillStepSize(prefillStepSize), seed(seed), topK(topK), minP(minP) {}
+    explicit LLMGenerationConfig(std::optional<double> maxTokens, std::optional<double> maxKVSize, std::optional<double> kvBits, std::optional<double> kvGroupSize, std::optional<double> quantizedKVStart, std::optional<double> temperature, std::optional<double> topP, std::optional<double> repetitionPenalty, std::optional<double> repetitionContextSize, std::optional<double> prefillStepSize, std::optional<double> seed, std::optional<double> topK, std::optional<double> minP, std::optional<bool> enableThinking): maxTokens(maxTokens), maxKVSize(maxKVSize), kvBits(kvBits), kvGroupSize(kvGroupSize), quantizedKVStart(quantizedKVStart), temperature(temperature), topP(topP), repetitionPenalty(repetitionPenalty), repetitionContextSize(repetitionContextSize), prefillStepSize(prefillStepSize), seed(seed), topK(topK), minP(minP), enableThinking(enableThinking) {}
 
   public:
     friend bool operator==(const LLMGenerationConfig& lhs, const LLMGenerationConfig& rhs) = default;
@@ -83,7 +84,8 @@ namespace margelo::nitro {
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "prefillStepSize"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "seed"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "topK"))),
-        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "minP")))
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "minP"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "enableThinking")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mlxreactnative::LLMGenerationConfig& arg) {
@@ -101,6 +103,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "seed"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.seed));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "topK"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.topK));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "minP"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.minP));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "enableThinking"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.enableThinking));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -124,6 +127,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "seed")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "topK")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "minP")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "enableThinking")))) return false;
       return true;
     }
   };

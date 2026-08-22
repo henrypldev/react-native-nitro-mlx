@@ -555,6 +555,9 @@ export default function AgentChatScreen() {
           ctxRef.current = await LLM.createContext({
             instructions: AGENT_INSTRUCTIONS,
             tools: TOOL_SCHEMAS,
+            // Qwen3 thinks by default; the reasoning trace is the main source
+            // of generated tokens and therefore of sustained GPU heat.
+            generationConfig: { enableThinking: false },
           })
         }
 

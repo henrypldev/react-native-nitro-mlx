@@ -404,6 +404,7 @@ private final class HybridLLMCore {
         var transcript: [Chat.Message]
         var pendingToolCallIds: [String]
         var needsRebuild: Bool
+        var enableThinking: Bool?
         /// Running total of tokens already encoded in the warm KV cache: the
         /// sum of prompt and completion tokens of every committed turn. An
         /// estimate — exact only while no trimming has occurred (spec: open
@@ -428,6 +429,7 @@ private final class HybridLLMCore {
     private var tools: [ToolDefinition] = []
     private var toolSchemas: [ToolSpec] = []
     private var generationParameters: GenerateParameters = GenerateParameters()
+    private var enableThinking: Bool?
     private var tokenBatchSize: Int = 4
     private var toolExecution: LLMToolExecution = .parallel
     private var contextConfig: LLMContextConfig?
@@ -560,13 +562,45 @@ private final class HybridLLMCore {
         return UInt64(value)
     }
 
+    /// Qwen3-style hybrid-thinking models read this chat-template kwarg; nil
+    /// leaves the template's own default (thinking on) untouched.
+    private func chatTemplateContext(_ enableThinking: Bool?) -> [String: any Sendable]? {
+        enableThinking.map { ["enable_thinking": $0] }
+    }
+
+    /// Sustained decode saturates the GPU and walks the device into thermal
+    /// throttling, where clocks — and with them tokens/s — drop far below what
+    /// a brief idle costs. Once iOS reports pressure, suspend the pipeline
+    /// between tokens so the GPU idles and the device sheds heat; a no-op
+    /// below `.serious`.
+    private func paceForThermals() async throws {
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious:
+            try await Task.sleep(nanoseconds: 8_000_000)
+        case .critical:
+            try await Task.sleep(nanoseconds: 24_000_000)
+        default:
+            break
+        }
+    }
+
+    /// Decode reads the whole KV cache every token, so cache size sets a floor
+    /// on per-token memory traffic. 8-bit entries halve that traffic (and the
+    /// cache footprint) with no visible quality change; below
+    /// `defaultQuantizedKVStart` tokens the prefix stays fp16, so short chats
+    /// are untouched. Callers override either value through `generationConfig`.
+    private static let defaultKVBits = 8
+    private static let defaultQuantizedKVStart = 2048
+
     private func buildGenerateParameters(from config: LLMGenerationConfig?) -> GenerateParameters {
         GenerateParameters(
             maxTokens: normalizedInt(config?.maxTokens, minimum: 1),
             maxKVSize: normalizedInt(config?.maxKVSize, minimum: 1),
-            kvBits: normalizedInt(config?.kvBits, minimum: 1),
+            kvBits: normalizedInt(config?.kvBits, minimum: 1)
+                ?? Self.defaultKVBits,
             kvGroupSize: normalizedInt(config?.kvGroupSize, minimum: 1) ?? 64,
-            quantizedKVStart: normalizedInt(config?.quantizedKVStart, minimum: 0) ?? 0,
+            quantizedKVStart: normalizedInt(config?.quantizedKVStart, minimum: 0)
+                ?? (config?.kvBits == nil ? Self.defaultQuantizedKVStart : 0),
             temperature: Float(config?.temperature ?? 0.6),
             topP: Float(config?.topP ?? 1.0),
             topK: normalizedInt(config?.topK, minimum: 0) ?? 0,
@@ -632,6 +666,7 @@ private final class HybridLLMCore {
                 container,
                 instructions: systemPrompt,
                 generateParameters: generationParameters,
+                additionalContext: chatTemplateContext(enableThinking),
                 tools: configuredToolSchemas()
             )
         } else {
@@ -640,6 +675,7 @@ private final class HybridLLMCore {
                 instructions: systemPrompt,
                 history: history,
                 generateParameters: generationParameters,
+                additionalContext: chatTemplateContext(enableThinking),
                 tools: configuredToolSchemas()
             )
         }
@@ -800,6 +836,7 @@ private final class HybridLLMCore {
         structuredHistory = []
         manageHistory = false
         generationParameters = GenerateParameters()
+        enableThinking = nil
         tokenBatchSize = 4
         toolExecution = .parallel
         contextConfig = nil
@@ -902,6 +939,7 @@ private final class HybridLLMCore {
             }
 
             generationParameters = buildGenerateParameters(from: options?.generationConfig)
+            enableThinking = options?.generationConfig?.enableThinking
             tokenBatchSize = normalizedInt(options?.tokenBatchSize, minimum: 1) ?? 4
             toolExecution = options?.toolExecution ?? .parallel
             contextConfig = options?.contextConfig
@@ -1170,6 +1208,7 @@ private final class HybridLLMCore {
             container,
             instructions: systemPrompt,
             generateParameters: generationParameters,
+            additionalContext: chatTemplateContext(enableThinking),
             tools: configuredToolSchemas()
         )
     }
@@ -1192,6 +1231,7 @@ private final class HybridLLMCore {
         }
 
         for try await generation in session.streamDetails(to: inputMessages) {
+            try await paceForThermals()
             try Task.checkCancellation()
             switch generation {
             case .chunk(let text):
@@ -1396,11 +1436,13 @@ private final class HybridLLMCore {
 
         let history = try chatMessagesFromTurnMessages(options?.history ?? [])
         let parameters = buildGenerateParameters(from: options?.generationConfig)
+        let thinking = options?.generationConfig?.enableThinking
         let session = ChatSession(
             container,
             instructions: options?.instructions,
             history: history,
             generateParameters: parameters,
+            additionalContext: chatTemplateContext(thinking),
             tools: toolSpecs.isEmpty ? nil : toolSpecs
         )
 
@@ -1414,6 +1456,7 @@ private final class HybridLLMCore {
                 transcript: history,
                 pendingToolCallIds: [],
                 needsRebuild: false,
+                enableThinking: thinking,
                 promptTokensSeen: 0
             )
         )
@@ -1541,6 +1584,9 @@ private final class HybridLLMCore {
                 instructions: request.instructions,
                 history: try chatMessagesFromTurnMessages(request.history ?? []),
                 generateParameters: buildGenerateParameters(from: request.generationConfig),
+                additionalContext: chatTemplateContext(
+                    request.generationConfig?.enableThinking
+                ),
                 tools: try schemaToolSpec.map { [$0] } ?? turnToolSpecs(from: request.tools ?? [])
             )
             warm = nil
@@ -1743,6 +1789,7 @@ private final class HybridLLMCore {
             instructions: entry.instructions,
             history: entry.transcript,
             generateParameters: entry.parameters,
+            additionalContext: chatTemplateContext(entry.enableThinking),
             tools: entry.toolSpecs.isEmpty ? nil : entry.toolSpecs
         )
         rebuilt.needsRebuild = false
@@ -1949,6 +1996,7 @@ private final class HybridLLMCore {
         }
 
         for try await generation in session.streamDetails(to: inputMessages) {
+            try await paceForThermals()
             switch generation {
             case .chunk(let text):
                 progress.recordContent(

@@ -248,11 +248,14 @@ export interface LLMGenerationConfig {
   maxTokens?: number
   /** Sliding-window KV cache size. When set, old cache entries are rotated out */
   maxKVSize?: number
-  /** KV cache quantization bits. Use 4 or 8 to reduce cache memory usage */
+  /**
+   * KV cache quantization bits. Use 4 or 8 to reduce cache memory usage.
+   * @default 8
+   */
   kvBits?: number
-  /** KV cache quantization group size */
+  /** KV cache quantization group size. @default 64 */
   kvGroupSize?: number
-  /** Token index at which KV cache quantization begins */
+  /** Token index at which KV cache quantization begins. @default 2048 when kvBits is unset, else 0 */
   quantizedKVStart?: number
   /** Sampling temperature. Set to 0 for greedy decoding */
   temperature?: number
@@ -270,6 +273,12 @@ export interface LLMGenerationConfig {
   topK?: number
   /** Min-p sampling threshold. 0 disables. */
   minP?: number
+  /**
+   * Passes `enable_thinking` to models whose chat template supports it
+   * (e.g. Qwen3 hybrid-thinking). False skips reasoning traces, which cuts
+   * generated tokens sharply — less heat, faster answers.
+   */
+  enableThinking?: boolean
 }
 
 /**
