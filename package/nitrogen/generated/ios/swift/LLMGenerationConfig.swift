@@ -18,7 +18,7 @@ public extension LLMGenerationConfig {
   /**
    * Create a new instance of `LLMGenerationConfig`.
    */
-  init(maxTokens: Double?, maxKVSize: Double?, kvBits: Double?, kvGroupSize: Double?, quantizedKVStart: Double?, temperature: Double?, topP: Double?, repetitionPenalty: Double?, repetitionContextSize: Double?, prefillStepSize: Double?, seed: Double?, topK: Double?, minP: Double?) {
+  init(maxTokens: Double?, maxKVSize: Double?, kvBits: Double?, kvGroupSize: Double?, quantizedKVStart: Double?, temperature: Double?, topP: Double?, repetitionPenalty: Double?, repetitionContextSize: Double?, prefillStepSize: Double?, seed: Double?, topK: Double?, minP: Double?, enableThinking: Bool?) {
     self.init({ () -> bridge.std__optional_double_ in
       if let __unwrappedValue = maxTokens {
         return bridge.create_std__optional_double_(__unwrappedValue)
@@ -94,6 +94,12 @@ public extension LLMGenerationConfig {
     }(), { () -> bridge.std__optional_double_ in
       if let __unwrappedValue = minP {
         return bridge.create_std__optional_double_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_bool_ in
+      if let __unwrappedValue = enableThinking {
+        return bridge.create_std__optional_bool_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -249,6 +255,18 @@ public extension LLMGenerationConfig {
     return { () -> Double? in
       if bridge.has_value_std__optional_double_(self.__minP) {
         let __unwrapped = bridge.get_std__optional_double_(self.__minP)
+        return __unwrapped
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var enableThinking: Bool? {
+    return { () -> Bool? in
+      if bridge.has_value_std__optional_bool_(self.__enableThinking) {
+        let __unwrapped = bridge.get_std__optional_bool_(self.__enableThinking)
         return __unwrapped
       } else {
         return nil
