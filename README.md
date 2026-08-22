@@ -583,6 +583,11 @@ await ModelManager.download(MLXModel.Llama_3_2_1B_Instruct_4bit, progress => {
 | **Qwen 3**                   |                              |                                            |
 | Qwen 3 1.7B 4-bit            | `Qwen3_1_7B_4bit`            | `mlx-community/Qwen3-1.7B-4bit`            |
 | Qwen 3 1.7B 8-bit            | `Qwen3_1_7B_8bit`            | `mlx-community/Qwen3-1.7B-8bit`            |
+| **Qwen 3.5 (Alibaba)**       |                              |                                            |
+| Qwen 3.5 0.8B 4-bit          | `Qwen3_5_0_8B_4bit`          | `mlx-community/Qwen3.5-0.8B-MLX-4bit`      |
+| Qwen 3.5 0.8B 8-bit          | `Qwen3_5_0_8B_8bit`          | `mlx-community/Qwen3.5-0.8B-MLX-8bit`      |
+| Qwen 3.5 2B 4-bit            | `Qwen3_5_2B_4bit`            | `mlx-community/Qwen3.5-2B-MLX-4bit`        |
+| Qwen 3.5 2B 8-bit            | `Qwen3_5_2B_8bit`            | `mlx-community/Qwen3.5-2B-MLX-8bit`        |
 | **Gemma 3 (Google)**         |                              |                                            |
 | Gemma 3 1B 4-bit             | `Gemma_3_1B_IT_4bit`         | `mlx-community/gemma-3-1b-it-4bit`         |
 | Gemma 3 1B 8-bit             | `Gemma_3_1B_IT_8bit`         | `mlx-community/gemma-3-1b-it-8bit`         |
